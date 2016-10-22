@@ -1,5 +1,6 @@
 #include <cmath>
 #include <algorithm>
+#include <random>
 
 #include <utils.h>
 #include <particle_filter.h>
@@ -24,7 +25,7 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
   vector<Pose> poses;
 
   // 1) Initialize particles drawn from uniform distribution
-  vector<Particle> particles(kParticles);
+  auto particles = init_particles();
 
   vector<Measurement> simulated_measurements(
     kParticles, /* kParticles => k simulations*/
@@ -60,6 +61,26 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
   }
 
   return poses;
+}
+
+/*
+   Random initialize particles uniformly
+ */
+vector<Particle> ParticleFilter::init_particles() {
+  vector<Particle> particles(kParticles);
+
+  // Create uniform distribution sampler for x, y, theta
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<>
+    u_x(map.min_x, map.max_x),
+    u_y(map.min_y, map.max_y),
+    u_theta(-PI(), PI());
+
+  for (size_t i=0; i<kParticles; ++i)
+    particles[i] = Pose(u_x(gen), u_y(gen), u_theta(gen));
+
+  return particles;
 }
 
 /*

@@ -27,6 +27,11 @@ public:
 
 private:
   /*
+     Random initialize particles uniformly
+    */
+  std::vector<Particle> init_particles();
+
+  /*
      Perform 2-D Bresenham ray-tracing on the map. Collect all the probabilities
      along the ray and return as an vector
    */

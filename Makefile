@@ -7,10 +7,12 @@ SRC=src/map.cpp \
     src/utils.cpp \
     src/particle_filter.cpp
 
-EXECUTABLES=particle_filter \
-	    find_max_range
+EXECUTABLES=particle_filter
+	    # find_max_range
 
-all: bin/particle_filter bin/find_max_range
+EXECUTABLES:=$(addprefix bin/, $(EXECUTABLES))
+
+all: $(EXECUTABLES)
 
 bin/particle_filter: $(SRC) particle_filter.cpp
 	$(CXX) $(CXX_FLAGS) particle_filter.cpp $(SRC) -o $@ -I include/
