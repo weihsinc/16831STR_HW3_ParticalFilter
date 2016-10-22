@@ -1,3 +1,4 @@
+#include <cmath>
 #include <algorithm>
 
 #include <utils.h>
@@ -11,6 +12,8 @@ FLOAT ParticleFilter::sigma;
 ParticleFilter::ParticleFilter(const Map& map, const int kParticles):
   map(map), kParticles(kParticles) {
 }
+
+constexpr FLOAT PI() { return std::atan(1) * 4; }
 
 /*
    Perform particle filter algorithm
@@ -32,7 +35,7 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 
   // 2) Perform particle filter algorithm iteratively
   for (size_t i=1; i<sensor_msgs.size(); ++i) {
-    // printf("Processing %zu-th message\n", i);
+    printf("Processing %zu-th message\n", i);
 
     auto sensor_msg = sensor_msgs[i];
     auto u_t = sensor_msgs[i]->pose - sensor_msgs[i-1]->pose;
@@ -94,10 +97,34 @@ void ParticleFilter::simulate_laser_scan(Measurement& m, const Pose& pose, const
    4. Max range            - a peak at z_max
  */
 PDF ParticleFilter::sensor_model_per_beam(int z) {
-  PDF model(100, 0.1);
+  PDF pdf(Laser::MaxRange, 0.);
   // TODO
 
-  return model;
+  // Precompute the denominator in Gaussian distribution
+  // denom = \frac{1}{\sqrt {2\pi} \sigma}
+  const FLOAT denom = 1. / (sqrt(2 * PI()) * ParticleFilter::sigma);
+  auto& weights = ParticleFilter::sensor_model_weights;
+
+  vector<FLOAT> likelihoods(4);
+  FLOAT sum = 0;
+
+  for (size_t i=0; i<pdf.size(); ++i) {
+
+    likelihoods[0] = denom * std::exp(0.5 * pow((FLOAT) (i - z) / ParticleFilter::sigma, 2));
+    likelihoods[1] = std::exp(-ParticleFilter::exp_decay * i);
+    likelihoods[2] = 1. / Laser::MaxRange;
+    likelihoods[3] = i == Laser::MaxRange ? 1. : 0.;
+
+    for (size_t j=0; j<4; ++j)
+      pdf[i] += likelihoods[j] * weights[j];
+
+    sum += pdf[i];
+  }
+
+  for (size_t i=0; i<pdf.size(); ++i)
+    pdf[i] /= sum;
+
+  return pdf;
 }
 
 /* 
