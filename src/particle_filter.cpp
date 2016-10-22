@@ -19,12 +19,11 @@ vector<Pose> particle_filter(
   vector<Particle> particles(kParticles);
 
   vector<Measurement> simulated_measurements(
-      kParticles, /* kParticles => k simulations*/
-      vector<Prob>(
-	Laser::kBeamPerScan, /* each simulation is 180 degree */
-	vector<FLOAT>(100)
-	)
-      );
+    kParticles, /* kParticles => k simulations*/
+    Measurement(
+      Laser::kBeamPerScan /* each simulation is 180 degree */
+    )
+  );
 
   // 2) Perform particle filter algorithm iteratively
   for (size_t i=1; i<sensor_msgs.size(); ++i) {
@@ -42,13 +41,13 @@ vector<Pose> particle_filter(
     else {
       Laser* laser = dynamic_cast<Laser*>(sensor_msg);
       // cout << (laser->ranges) << endl;
-      auto measurement = sensor_model(laser->ranges);
+      auto models = sensor_model(laser->ranges);
       // cout << measurement << endl;
       
       for (size_t j=0; j<kParticles; ++j)
 	simulate_laser_scan(simulated_measurements[j], particles[j], map);
 
-      // particles = particle_filter_iterative(map, sensor_msg, particles);
+      compute_likelihood(simulated_measurements, models);
     }
   }
 
@@ -56,30 +55,16 @@ vector<Pose> particle_filter(
 }
 
 /*
-vector<Particle> particle_filter_iterative(
-    const Map& map,
-    const Pose& u_t,
-    const vector<Particle>& prev_particles) {
-
-  vector<Particle> particles;
-
-  update_particles_through_motion_model(poses)
-
-  return particles;
-}
-*/
-
-/*
    Perform 2-D Bresenham ray-tracing on the map. Collect all the probabilities
    along the ray and return as an vector
  */
-void simulate_laser_per_beam(
-    Prob& prob,
+float simulate_laser_per_beam(
     const int x_start, const int y_start,
     const int dx, const int dy,
     const Map& map) {
 
   // TODO
+  return 0;
 }
 
 /*
@@ -88,7 +73,7 @@ void simulate_laser_per_beam(
 void simulate_laser_scan(Measurement& m, const Pose& pose, const Map& map) {
   // TODO
   for (size_t i=0; i<m.size(); ++i)
-    simulate_laser_per_beam(m[i], 0, 0, 0, 0, map);
+    m[i] = simulate_laser_per_beam(0, 0, 0, 0, map);
 
   // cout << "simulation done" << endl;
 }
@@ -102,24 +87,25 @@ void simulate_laser_scan(Measurement& m, const Pose& pose, const Map& map) {
    3. Random Measurement   - Uniform distribution
    4. Max range            - a peak at z_max
  */
-Prob sensor_model_per_beam(int z) {
-
-  Prob prob(100, 0.1);
+PDF sensor_model_per_beam(int z) {
+  PDF model(100, 0.1);
   // TODO
 
-  return prob;
+  return model;
 }
 
 /* 
-   <Sensor Model>
+   <Sensor PDF>
    Turn a laser beam (180 integers) into a vector of probability distributions
  */
-Measurement sensor_model(const vector<int> &z) {
+vector<PDF> sensor_model(const vector<int> &z) {
 
-  Measurement m(z.size());
+  vector<PDF> models(z.size());
+
   for (size_t i=0; i<z.size(); ++i)
-    m[i] = sensor_model_per_beam(z[i]);
-  return m;
+    models[i] = sensor_model_per_beam(z[i]);
+
+  return models;
 }
 
 /*
@@ -128,9 +114,11 @@ Measurement sensor_model(const vector<int> &z) {
    */
 vector<float> compute_likelihood(
     const vector<Measurement>& simulated_measurements,
-    const Measurement& measurement) {
+    const vector<PDF>& models) {
 
   // TODO
+  for (size_t i=0; i<simulated_measurements.size(); ++i) {
+  }
 
   return vector<float>();
 }

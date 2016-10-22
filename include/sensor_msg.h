@@ -7,6 +7,7 @@
 #include <pose.h>
 
 typedef float TIME_T;
+typedef std::vector<int> Measurement;
 
 class SensorMsg {
 
@@ -75,7 +76,7 @@ public:
 
   /* Data Member */
   Pose pose_l;
-  std::vector<int> ranges;
+  Measurement ranges;
 };
 
 #endif // __SENSOR_MSG_H_
