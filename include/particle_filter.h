@@ -6,6 +6,10 @@
 #include <sensor_msg.h>
 #include <data_parser.h>
 
+// OpenCV (for visualization and debugging)
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
 typedef std::vector<FLOAT> PDF;
 typedef Pose Particle;
 

@@ -67,6 +67,13 @@ int main(int argc, char* argv[]) {
     cout << *sensor_msg << endl;
     */
 
+  /* basic OpenCV example for later debugging
+  cv::Mat image = cv::imread("/home/boton/network_diagram.png", CV_LOAD_IMAGE_COLOR);   // Read the file
+  cv::namedWindow( "Display window", cv::WINDOW_AUTOSIZE );
+  cv::imshow( "Display window", image );
+  cv::waitKey(0);
+  // */
+
   // Initialie particle filter
   ParticleFilter particle_filter(map, kParticles);
 
