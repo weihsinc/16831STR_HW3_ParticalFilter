@@ -19,6 +19,11 @@ public:
   static std::random_device rd;
   static std::mt19937 gen;
 
+  enum RayTracingAlgorithm {
+    Naive,
+    Bresenham
+  };
+
   /*
      Constructor
    */
@@ -36,13 +41,28 @@ private:
   std::vector<Particle> init_particles();
 
   /*
-     Perform 2-D Bresenham ray-tracing on the map. Collect all the probabilities
-     along the ray and return as an vector
+     Perform 2-D Bresenham ray-tracing on the map.
    */
-  float simulate_laser_per_beam(
+  int Bresenham_ray_tracing(
       const int x_start, const int y_start,
       const int dx, const int dy,
       const Map& map);
+
+  /*
+     Perform 2-D naive ray-tracing on the map.
+   */
+  int naive_ray_tracing(
+      const FLOAT x, const FLOAT y,
+      const FLOAT dx, const FLOAT dy,
+      const Map& map);
+
+  /*
+     Perform 2-D ray-tracing using either naive approach or Bresenham
+    */
+  int simulate_laser_beam(
+      const FLOAT x, const FLOAT y,
+      const FLOAT dx, const FLOAT dy,
+      const Map& map, RayTracingAlgorithm rta = RayTracingAlgorithm::Naive);
 
   /*
      Perform 2-D ray-tracing for all 180 beams in a single laser scan
@@ -53,12 +73,12 @@ private:
      Turn a single int measurement into a probability distribution based on the 
      sensor model.
    */
-  PDF sensor_model_per_beam(int z);
+  void compute_sensor_model_per_beam(PDF& pdf, int z);
 
   /* 
      Turn a laser beam (180 integers) into a vector of probability distributions
    */
-  std::vector<PDF> sensor_model(const std::vector<int> &z);
+  void compute_sensor_model(std::vector<PDF>& models, const std::vector<int> &z);
 
   /*
      Compare Laser measurements (per scan, meaning 180 feature vectors) to the

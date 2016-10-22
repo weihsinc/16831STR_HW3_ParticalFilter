@@ -22,6 +22,10 @@ public:
   }
   */
 
+  Pose operator + (const Pose& rhs) const {
+    return Pose(x + rhs.x, y + rhs.y, theta + rhs.theta);
+  }
+
   Pose operator - (const Pose& rhs) const {
     return Pose(x - rhs.x, y - rhs.y, theta - rhs.theta);
   }
