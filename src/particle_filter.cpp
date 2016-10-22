@@ -1,47 +1,96 @@
+#include <algorithm>
+
+#include <utils.h>
 #include <particle_filter.h>
 using namespace std;
 
 /*
    Perform particle filter algorithm
+   Return the estimated pose over time
  */
-Pose particle_filter(
+vector<Pose> particle_filter(
     const Map& map,
     const vector<SensorMsg*> sensor_msgs,
-    const int nParticles) {
+    const int kParticles) {
 
-  Pose pose;
+  vector<Pose> poses;
 
-  // TODO
-  // Perform particle filter, and return the average pose of all particles
+  // 1) Initialize particles drawn from uniform distribution
+  vector<Particle> particles(kParticles);
 
-  return pose;
+  vector<Measurement> simulated_measurements(
+      kParticles, /* kParticles => k simulations*/
+      vector<Prob>(
+	Laser::kBeamPerScan, /* each simulation is 180 degree */
+	vector<FLOAT>(100)
+	)
+      );
+
+  // 2) Perform particle filter algorithm iteratively
+  for (size_t i=1; i<sensor_msgs.size(); ++i) {
+    printf("Processing %zu-th message\n", i);
+
+    auto sensor_msg = sensor_msgs[i];
+    auto u_t = sensor_msgs[i]->pose - sensor_msgs[i-1]->pose;
+    // cout << "u[" << i << "] = " << u_t << endl;
+    
+    update_particles_through_motion_model(u_t, particles);
+
+    if (sensor_msg->type() == SensorMsg::Odometry) {
+      // Do nothing
+    }
+    else {
+      Laser* laser = dynamic_cast<Laser*>(sensor_msg);
+      // cout << (laser->ranges) << endl;
+      auto measurement = sensor_model(laser->ranges);
+      // cout << measurement << endl;
+      
+      for (size_t j=0; j<kParticles; ++j)
+	simulate_laser_scan(simulated_measurements[j], particles[j], map);
+
+      // particles = particle_filter_iterative(map, sensor_msg, particles);
+    }
+  }
+
+  return poses;
 }
+
+/*
+vector<Particle> particle_filter_iterative(
+    const Map& map,
+    const Pose& u_t,
+    const vector<Particle>& prev_particles) {
+
+  vector<Particle> particles;
+
+  update_particles_through_motion_model(poses)
+
+  return particles;
+}
+*/
 
 /*
    Perform 2-D Bresenham ray-tracing on the map. Collect all the probabilities
    along the ray and return as an vector
  */
-Prob simulate_laser_per_beam(
+void simulate_laser_per_beam(
+    Prob& prob,
     const int x_start, const int y_start,
     const int dx, const int dy,
     const Map& map) {
 
-  Prob prob;
-
   // TODO
-
-  return prob;
 }
 
 /*
    Perform 2-D ray-tracing for all 180 beams in a single laser scan
  */
-Measurement simulate_laser_scan(const Pose& pose, const Map& map) {
-  Measurement m;
+void simulate_laser_scan(Measurement& m, const Pose& pose, const Map& map) {
   // TODO
-  // for i = 1 : 180 ...
+  for (size_t i=0; i<m.size(); ++i)
+    simulate_laser_per_beam(m[i], 0, 0, 0, 0, map);
 
-  return m;
+  // cout << "simulation done" << endl;
 }
 
 /*
@@ -55,7 +104,8 @@ Measurement simulate_laser_scan(const Pose& pose, const Map& map) {
  */
 Prob sensor_model_per_beam(int z) {
 
-  Prob prob;
+  Prob prob(100, 0.1);
+  // TODO
 
   return prob;
 }
@@ -64,10 +114,11 @@ Prob sensor_model_per_beam(int z) {
    <Sensor Model>
    Turn a laser beam (180 integers) into a vector of probability distributions
  */
-Measurement sensor_model(vector<int> z) {
+Measurement sensor_model(const vector<int> &z) {
 
-  Measurement m;
-
+  Measurement m(z.size());
+  for (size_t i=0; i<z.size(); ++i)
+    m[i] = sensor_model_per_beam(z[i]);
   return m;
 }
 
@@ -88,8 +139,9 @@ vector<float> compute_likelihood(
    <Motion Model>
  */
 void update_particles_through_motion_model(
-    const Pose& delta, vector<Pose>& poses) {
-  const float kSigma = 0.1;
+    const Pose& delta,
+    vector<Pose>& poses,
+    const float kSigma) {
 
   // TODO
 }

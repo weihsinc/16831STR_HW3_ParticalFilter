@@ -7,4 +7,12 @@
 void split(const std::string &s, char delim, std::vector<std::string> &elems);
 std::vector<std::string> split(const std::string &s, char delim = ' ');
 
+template <typename T>
+std::ostream& operator << (std::ostream& os, const std::vector<T>& arr) {
+  for (const auto& x : arr)
+    os << x << " ";
+  os << std::endl;
+  return os;
+}
+
 #endif // __UTILS_H_

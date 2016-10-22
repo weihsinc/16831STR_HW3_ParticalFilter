@@ -4,21 +4,17 @@
 #include <vector>
 #include <string>
 
-// typedef double FLOAT;
-typedef float FLOAT;
+#include <pose.h>
+
+typedef float TIME_T;
 
 class SensorMsg {
 
 public:
 
-  SensorMsg(const std::vector<std::string> &tokens) {
-    // x, y, theta
-    this->x = std::stof(tokens[1]);
-    this->y = std::stof(tokens[2]);
-    this->theta = std::stof(tokens[3]);
-
-    // The last token is timestamp
-    this->timestamp = std::stof(tokens.back());
+  SensorMsg(const std::vector<std::string> &tokens):
+    pose(std::stof(tokens[1]), std::stof(tokens[2]), std::stof(tokens[3])),
+    timestamp(std::stof(tokens.back())) {
   }
 
   enum Type {
@@ -33,8 +29,8 @@ public:
   virtual std::ostream& print (std::ostream& os) const = 0;
 
   /* Data Member */
-  FLOAT x, y, theta;
-  FLOAT timestamp;
+  Pose pose;
+  TIME_T timestamp;
 };
 
 class Odometry : public SensorMsg {
@@ -43,7 +39,8 @@ public:
   }
   
   virtual std::ostream& print (std::ostream& os) const {
-    os << "O " << x << " " << y << " " << theta << " " << timestamp;
+    os << "O " << pose.x << " " << pose.y << " " << pose.theta << " " << timestamp;
+    return os;
   }
 
   Type type() const { return SensorMsg::Odometry; }
@@ -53,31 +50,31 @@ class Laser : public SensorMsg {
 public:
   static constexpr int kBeamPerScan = 180;
 
-  Laser(const std::vector<std::string> &tokens) : SensorMsg(tokens) {
-      this->xl = std::stof(tokens[4]);
-      this->yl = std::stof(tokens[5]);
-      this->thetal = std::stof(tokens[6]);
+  Laser(const std::vector<std::string> &tokens) :
+    SensorMsg(tokens),
+    pose_l(std::stof(tokens[1]), std::stof(tokens[2]), std::stof(tokens[3])),
+    ranges(kBeamPerScan) {
 
-      this->ranges.resize(kBeamPerScan);
-      
-      for (size_t i=0; i<kBeamPerScan; ++i)
-	this->ranges[i] = stoi(tokens[7+i]);
+    for (size_t i=0; i<kBeamPerScan; ++i)
+      this->ranges[i] = stoi(tokens[7+i]);
   }
 
   virtual std::ostream& print (std::ostream& os) const {
-    os << "L " << x << " " << y << " " << theta << " "
-       << xl << " " << yl << " " << thetal << " ";
+    os << "L "
+      << pose.x << " " << pose.y << " " << pose.theta << " "
+      << pose_l.x << " " << pose_l.y << " " << pose_l.theta << " ";
 
     for (auto& range : ranges)
       os << range << " ";
     os << timestamp;
+
     return os;
   }
 
   Type type() const { return SensorMsg::Laser; }
 
   /* Data Member */
-  FLOAT xl, yl, thetal;
+  Pose pose_l;
   std::vector<int> ranges;
 };
 

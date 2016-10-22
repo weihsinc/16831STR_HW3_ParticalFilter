@@ -22,7 +22,12 @@ vector<SensorMsg*> parse_robot_data(const string& robotdata_log_fn) {
       sensor_msg = new Odometry(tokens);
     else if (tokens[0] == "L")
       sensor_msg = new Laser(tokens);
+
+    sensor_msgs.push_back(sensor_msg);
   }
+
+  printf("Successfully parsed \33[33m%zu\33[0m sensor messages\n",
+      sensor_msgs.size());
 
   fin.close();
 

@@ -20,12 +20,10 @@ Map::Map(const string& mapName) {
 	printf("# Map resolution: %d cm\n", this->resolution);
     if(strncmp(line, "robot_specifications->autoshifted_x", 35) == 0)
       if(sscanf(&line[35], "%g", &(this->offset_x)) != 0) {
-	this->offset_x = this->offset_x;
 	printf("# Map offsetX: %g cm\n", this->offset_x);
       }
     if(strncmp(line, "robot_specifications->autoshifted_y", 35) == 0) {
       if (sscanf(&line[35], "%g", &(this->offset_y)) != 0) {
-	this->offset_y = this->offset_y;
 	printf("# Map offsetY: %g cm\n", this->offset_y);
       }
     }
