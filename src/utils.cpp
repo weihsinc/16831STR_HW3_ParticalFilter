@@ -1,17 +1,29 @@
+#include <iostream>
 #include <utils.h>
+using namespace std;
 
-void split(const std::string &s, char delim, std::vector<std::string> &elems) {
-  std::stringstream ss;
+void split(const string &s, char delim, vector<string> &elems) {
+  stringstream ss;
   ss.str(s);
-  std::string item;
-  while (std::getline(ss, item, delim)) {
+  string item;
+  while (getline(ss, item, delim)) {
     elems.push_back(item);
   }
 }
 
 
-std::vector<std::string> split(const std::string &s, char delim) {
-  std::vector<std::string> elems;
+vector<string> split(const string &s, char delim) {
+  vector<string> elems;
   split(s, delim, elems);
   return elems;
+}
+
+vector<float> splitAsFloat(const string &s, char delim) {
+  auto tokens = split(s, delim);
+  vector<float> output(tokens.size());
+
+  for (size_t i=0; i<output.size(); ++i)
+    output[i] = stof(tokens[i]);
+
+  return output;
 }

@@ -13,10 +13,7 @@ class SensorMsg {
 
 public:
 
-  SensorMsg(const std::vector<std::string> &tokens):
-    pose(std::stof(tokens[1]), std::stof(tokens[2]), std::stof(tokens[3])),
-    timestamp(std::stof(tokens.back())) {
-  }
+  SensorMsg(const std::vector<std::string> &tokens);
 
   enum Type {
     Odometry, Laser
@@ -36,43 +33,22 @@ public:
 
 class Odometry : public SensorMsg {
 public:
-  Odometry(const std::vector<std::string> &tokens) : SensorMsg(tokens) {
-  }
+  Odometry(const std::vector<std::string> &tokens);
   
-  virtual std::ostream& print (std::ostream& os) const {
-    os << "O " << pose.x << " " << pose.y << " " << pose.theta << " " << timestamp;
-    return os;
-  }
+  virtual std::ostream& print (std::ostream& os) const;
 
-  Type type() const { return SensorMsg::Odometry; }
+  Type type() const;
 };
 
 class Laser : public SensorMsg {
 public:
-  static constexpr int kBeamPerScan = 180;
+  static int kBeamPerScan;
 
-  Laser(const std::vector<std::string> &tokens) :
-    SensorMsg(tokens),
-    pose_l(std::stof(tokens[1]), std::stof(tokens[2]), std::stof(tokens[3])),
-    ranges(kBeamPerScan) {
+  Laser(const std::vector<std::string> &tokens);
 
-    for (size_t i=0; i<kBeamPerScan; ++i)
-      this->ranges[i] = stoi(tokens[7+i]);
-  }
+  virtual std::ostream& print (std::ostream& os) const;
 
-  virtual std::ostream& print (std::ostream& os) const {
-    os << "L "
-      << pose.x << " " << pose.y << " " << pose.theta << " "
-      << pose_l.x << " " << pose_l.y << " " << pose_l.theta << " ";
-
-    for (auto& range : ranges)
-      os << range << " ";
-    os << timestamp;
-
-    return os;
-  }
-
-  Type type() const { return SensorMsg::Laser; }
+  Type type() const;
 
   /* Data Member */
   Pose pose_l;

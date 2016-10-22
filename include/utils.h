@@ -15,4 +15,6 @@ std::ostream& operator << (std::ostream& os, const std::vector<T>& arr) {
   return os;
 }
 
+std::vector<float> splitAsFloat(const std::string &s, char delim = ' ');
+
 #endif // __UTILS_H_

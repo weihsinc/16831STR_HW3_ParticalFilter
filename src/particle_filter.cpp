@@ -4,14 +4,19 @@
 #include <particle_filter.h>
 using namespace std;
 
+std::vector<FLOAT> ParticleFilter::sensor_model_weights(4);
+FLOAT ParticleFilter::exp_decay;
+FLOAT ParticleFilter::sigma;
+
+ParticleFilter::ParticleFilter(const Map& map, const int kParticles):
+  map(map), kParticles(kParticles) {
+}
+
 /*
    Perform particle filter algorithm
    Return the estimated pose over time
  */
-vector<Pose> particle_filter(
-    const Map& map,
-    const vector<SensorMsg*> sensor_msgs,
-    const int kParticles) {
+vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) {
 
   vector<Pose> poses;
 
@@ -27,7 +32,7 @@ vector<Pose> particle_filter(
 
   // 2) Perform particle filter algorithm iteratively
   for (size_t i=1; i<sensor_msgs.size(); ++i) {
-    printf("Processing %zu-th message\n", i);
+    // printf("Processing %zu-th message\n", i);
 
     auto sensor_msg = sensor_msgs[i];
     auto u_t = sensor_msgs[i]->pose - sensor_msgs[i-1]->pose;
@@ -58,7 +63,7 @@ vector<Pose> particle_filter(
    Perform 2-D Bresenham ray-tracing on the map. Collect all the probabilities
    along the ray and return as an vector
  */
-float simulate_laser_per_beam(
+float ParticleFilter::simulate_laser_per_beam(
     const int x_start, const int y_start,
     const int dx, const int dy,
     const Map& map) {
@@ -70,7 +75,7 @@ float simulate_laser_per_beam(
 /*
    Perform 2-D ray-tracing for all 180 beams in a single laser scan
  */
-void simulate_laser_scan(Measurement& m, const Pose& pose, const Map& map) {
+void ParticleFilter::simulate_laser_scan(Measurement& m, const Pose& pose, const Map& map) {
 
   // TODO
   for (size_t i=0; i<m.size(); ++i)
@@ -88,7 +93,7 @@ void simulate_laser_scan(Measurement& m, const Pose& pose, const Map& map) {
    3. Random Measurement   - Uniform distribution
    4. Max range            - a peak at z_max
  */
-PDF sensor_model_per_beam(int z) {
+PDF ParticleFilter::sensor_model_per_beam(int z) {
   PDF model(100, 0.1);
   // TODO
 
@@ -99,7 +104,7 @@ PDF sensor_model_per_beam(int z) {
    <Sensor PDF>
    Turn a laser beam (180 integers) into a vector of probability distributions
  */
-vector<PDF> sensor_model(const vector<int> &z) {
+vector<PDF> ParticleFilter::sensor_model(const vector<int> &z) {
 
   vector<PDF> models(z.size());
 
@@ -113,7 +118,7 @@ vector<PDF> sensor_model(const vector<int> &z) {
    Compare Laser measurements (per scan, meaning 180 feature vectors) to the
    measurements simulated at all particle's pose.
    */
-vector<float> compute_likelihood(
+vector<float> ParticleFilter::compute_likelihood(
     const vector<Measurement>& simulated_measurements,
     const vector<PDF>& models) {
 
@@ -127,10 +132,9 @@ vector<float> compute_likelihood(
 /*
    <Motion Model>
  */
-void update_particles_through_motion_model(
+void ParticleFilter::update_particles_through_motion_model(
     const Pose& delta,
-    vector<Pose>& poses,
-    const float kSigma) {
+    vector<Pose>& poses) {
 
   // TODO
 }

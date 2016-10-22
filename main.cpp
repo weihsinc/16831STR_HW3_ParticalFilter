@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <utils.h>
 #include <cmdparser.h>
 
 #include <particle_filter.h>
@@ -15,14 +16,14 @@ int main(int argc, char* argv[]) {
   
   cmd.addGroup("General options:")
     .add("--map-filename", "filename of map", "data/map/wean.dat")
-    .add("--beam-per-scan", "number of beam per LASER scan", "180");
+    .add("--k-beam-per-scan", "number of beam per LASER scan", "180");
 
   cmd.addGroup("Particle Filter options:")
     .add("-n", "number of particles", "10000");
 
   cmd.addGroup("Sensor Model options:")
     .add("--weights", "weights of Gaussian, Exponential Decay, Uniform, Max Range", "1,1,1,1")
-    .add("--std", "standard deviation of Gaussian model", "0.01")
+    .add("--sigma", "standard deviation of Gaussian model", "0.01")
     .add("--exp-decay", "exponential decay rate k in exp(-kt)", "2");
 
   cmd.addGroup("Example usage: ./particle_filter data/log/robotdata2.log");
@@ -31,7 +32,19 @@ int main(int argc, char* argv[]) {
     cmd.showUsageAndExit();
 
   string robot_data = cmd[1];
+
   string map_fn = cmd["--map-filename"];
+  Laser::kBeamPerScan = cmd["--k-beam-per-scan"];
+  int kParticles = cmd["-n"];
+
+  ParticleFilter::sensor_model_weights = splitAsFloat(cmd["--weights"], ',');
+  ParticleFilter::sigma = cmd["--sigma"];
+  ParticleFilter::exp_decay = cmd["--exp-decay"];
+
+  cout
+    << "sensor model weights: " << ParticleFilter::sensor_model_weights
+    << "standard deviation  : " << ParticleFilter::sigma << endl
+    << "exponential decay   : " << ParticleFilter::exp_decay << endl;
 
   // Load map
   Map map(map_fn);
@@ -44,7 +57,11 @@ int main(int argc, char* argv[]) {
     cout << *sensor_msg << endl;
     */
 
-  auto poses = particle_filter(map, sensor_msgs, 1000);
+  // Initialie particle filter
+  ParticleFilter particle_filter(map, kParticles);
+
+  // Use particle_filter to filter out the pose of robot
+  auto poses = particle_filter(sensor_msgs);
 
   return 0;
 }
