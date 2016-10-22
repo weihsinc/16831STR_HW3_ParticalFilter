@@ -7,4 +7,4 @@ SRC=src/map.cpp \
     src/particle_filter.cpp
 
 all:
-	$(CXX) $(CXX_FLAGS) main.cpp $(SRC) -o out -I include/
+	$(CXX) $(CXX_FLAGS) main.cpp $(SRC) -o particle_filter -I include/

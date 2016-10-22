@@ -71,6 +71,7 @@ float simulate_laser_per_beam(
    Perform 2-D ray-tracing for all 180 beams in a single laser scan
  */
 void simulate_laser_scan(Measurement& m, const Pose& pose, const Map& map) {
+
   // TODO
   for (size_t i=0; i<m.size(); ++i)
     m[i] = simulate_laser_per_beam(0, 0, 0, 0, map);
