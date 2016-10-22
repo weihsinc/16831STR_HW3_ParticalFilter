@@ -17,3 +17,8 @@ bin/particle_filter: $(SRC) particle_filter.cpp
 
 bin/find_max_range: $(SRC) find_max_range.cpp
 	$(CXX) $(CXX_FLAGS) find_max_range.cpp $(SRC) -o $@ -I include/
+
+.PHONY: clean
+
+clean:
+	rm bin/*
