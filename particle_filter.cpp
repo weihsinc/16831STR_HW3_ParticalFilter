@@ -20,6 +20,9 @@ int main(int argc, char* argv[]) {
   cmd.addGroup("Particle Filter options:")
     .add("-n", "number of particles", "10000");
 
+  cmd.addGroup("Motion Model options:")
+    .add("--motion-sigma", "standard deviation of Gaussian Motion model", "0.01");
+
   cmd.addGroup("Sensor Model options:")
     .add("--max-range", "max range of the laser sensor")
     .add("--k-beam-per-scan", "number of beam per LASER scan", "180")
@@ -39,6 +42,8 @@ int main(int argc, char* argv[]) {
   Laser::MaxRange = cmd["--max-range"];
   int kParticles = cmd["-n"];
 
+  ParticleFilter::motion_sigma = cmd["--motion-sigma"];
+
   ParticleFilter::sensor_model_weights = splitAsFloat(cmd["--weights"], ',');
   ParticleFilter::sigma = cmd["--sigma"];
   ParticleFilter::exp_decay = cmd["--exp-decay"];
@@ -46,6 +51,7 @@ int main(int argc, char* argv[]) {
   cout
     << "# Beams per scan    : " << Laser::kBeamPerScan << endl
     << "Laser Max Range     : " << Laser::MaxRange << endl
+    << "motion sigma        : " << ParticleFilter::motion_sigma << endl
     << "sensor model weights: " << ParticleFilter::sensor_model_weights
     << "standard deviation  : " << ParticleFilter::sigma << endl
     << "exponential decay   : " << ParticleFilter::exp_decay << endl;

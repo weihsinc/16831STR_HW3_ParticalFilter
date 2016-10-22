@@ -11,9 +11,13 @@ typedef Pose Particle;
 
 class ParticleFilter {
 public:
+  static FLOAT motion_sigma;
   static std::vector<FLOAT> sensor_model_weights;
   static FLOAT exp_decay;
   static FLOAT sigma;
+
+  static std::random_device rd;
+  static std::mt19937 gen;
 
   /*
      Constructor

@@ -9,6 +9,10 @@ using namespace std;
 std::vector<FLOAT> ParticleFilter::sensor_model_weights(4);
 FLOAT ParticleFilter::exp_decay;
 FLOAT ParticleFilter::sigma;
+FLOAT ParticleFilter::motion_sigma;
+
+std::random_device ParticleFilter::rd;
+std::mt19937 ParticleFilter::gen(rd());
 
 ParticleFilter::ParticleFilter(const Map& map, const int kParticles):
   map(map), kParticles(kParticles) {
@@ -70,8 +74,6 @@ vector<Particle> ParticleFilter::init_particles() {
   vector<Particle> particles(kParticles);
 
   // Create uniform distribution sampler for x, y, theta
-  std::random_device rd;
-  std::mt19937 gen(rd());
   std::uniform_real_distribution<>
     u_x(map.min_x, map.max_x),
     u_y(map.min_y, map.max_y),
@@ -102,8 +104,9 @@ float ParticleFilter::simulate_laser_per_beam(
 void ParticleFilter::simulate_laser_scan(Measurement& m, const Pose& pose, const Map& map) {
 
   // TODO
-  for (size_t i=0; i<m.size(); ++i)
+  for (size_t i=0; i<m.size(); ++i) {
     m[i] = simulate_laser_per_beam(0, 0, 0, 0, map);
+  }
 
   // cout << "simulation done" << endl;
 }
@@ -184,5 +187,14 @@ void ParticleFilter::update_particles_through_motion_model(
     const Pose& delta,
     vector<Pose>& poses) {
 
-  // TODO
+  std::normal_distribution<>
+    normal_x(delta.x, ParticleFilter::motion_sigma),
+    normal_y(delta.y, ParticleFilter::motion_sigma),
+    normal_theta(delta.theta, ParticleFilter::motion_sigma);
+
+  for (size_t i=0; i<poses.size(); ++i) {
+    poses[i].x += normal_x(gen);
+    poses[i].y += normal_y(gen);
+    poses[i].theta += normal_theta(gen);
+  }
 }
