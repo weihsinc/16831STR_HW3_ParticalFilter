@@ -80,6 +80,10 @@ private:
    */
   void compute_sensor_model(std::vector<PDF>& models, const std::vector<int> &z);
 
+  float compute_likelihood(
+      const Measurement& m,
+      const std::vector<PDF>& pdfs);
+
   /*
      Compare Laser measurements (per scan, meaning 180 feature vectors) to the
      measurements simulated at all particle's pose.
@@ -115,6 +119,7 @@ private:
   void show_particles_on_map(const std::vector<Particle>& particles) const;
 
   // Data Member
+  cv::Mat simulation;
   const Map& map;
   int kParticles;
 };

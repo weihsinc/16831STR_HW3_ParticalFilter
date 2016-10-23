@@ -69,6 +69,7 @@ int main(int argc, char* argv[]) {
 
   // basic OpenCV example for later debugging
   cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE);
+  cv::namedWindow("Simulation", cv::WINDOW_AUTOSIZE);
 
   // Initialie particle filter
   ParticleFilter particle_filter(map, kParticles);
