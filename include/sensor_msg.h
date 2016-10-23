@@ -42,8 +42,8 @@ public:
 
 class Laser : public SensorMsg {
 public:
-  static int kBeamPerScan;
-  static int MaxRange;
+  static size_t kBeamPerScan;
+  static size_t MaxRange;
 
   Laser(const std::vector<std::string> &tokens);
 

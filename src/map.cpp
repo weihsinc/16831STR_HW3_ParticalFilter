@@ -48,10 +48,10 @@ void Map::read_map_from_file(const string& mapName) {
     }
   }
 
-  if(sscanf(line,"global_map[0]: %d %d", &this->size_y, &this->size_x) != 2)
+  if(sscanf(line,"global_map[0]: %zu %zu", &this->size_y, &this->size_x) != 2)
     throw std::runtime_error("ERROR: corrupted file " + mapName);
 
-  fprintf(stderr, "# Map size: %d %d\n", this->size_x, this->size_y);
+  fprintf(stderr, "# Map size: %zu %zu\n", this->size_x, this->size_y);
 
   // new_hornetsoft_map(map, this->size_x, this->size_y);
 
@@ -64,11 +64,11 @@ void Map::read_map_from_file(const string& mapName) {
   float temp;
 
   this->prob.resize(this->size_x);
-  for (int x = 0; x < this->size_x; x++)
+  for (size_t x = 0; x < this->size_x; x++)
     this->prob[x].resize(this->size_y);
 
-  for (int x = 0; x < this->size_x; x++)
-    for (int y = 0; y < this->size_y; y++, count++) {
+  for (size_t x = 0; x < this->size_x; x++)
+    for (size_t y = 0; y < this->size_y; y++, count++) {
       if (count % 10000 == 0)
 	fprintf(stderr, "\r# Reading ... (%.2f%%)",
 	    count / (float)(this->size_x * this->size_y) * 100);

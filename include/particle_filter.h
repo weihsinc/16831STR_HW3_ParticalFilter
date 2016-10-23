@@ -26,7 +26,7 @@ public:
   /*
      Constructor
    */
-  ParticleFilter(const Map& map, const int kParticles);
+  ParticleFilter(const Map& map, const size_t kParticles);
 
   /*
      Perform particle filter algorithm
@@ -106,7 +106,7 @@ private:
   cv::Mat simulation_naive;
   cv::Mat simulation_bresenham;
   const Map& map;
-  int kParticles;
+  size_t kParticles;
 };
 
 

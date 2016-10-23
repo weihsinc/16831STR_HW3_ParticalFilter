@@ -13,7 +13,7 @@ bool ParticleFilter::show_ray_tracing;
 std::random_device ParticleFilter::rd;
 std::mt19937 ParticleFilter::gen(rd());
 
-ParticleFilter::ParticleFilter(const Map& map, const int kParticles):
+ParticleFilter::ParticleFilter(const Map& map, const size_t kParticles):
   map(map), kParticles(kParticles) {
 }
 
@@ -182,7 +182,7 @@ int ParticleFilter::Bresenham_ray_tracing(
   size_t x = x0;
   size_t y = y0;
 
-  constexpr FLOAT eps = 0.8;
+  constexpr FLOAT threshold = 0.2;
 
   for (int i=0; i<L; ++i) {
     if (debug)
@@ -191,7 +191,7 @@ int ParticleFilter::Bresenham_ray_tracing(
     if (x >= map.max_x || y >= map.max_y)
       break;
 
-    if (map.prob[x][y] > 1. - eps) {
+    if (map.prob[x][y] > threshold) {
 
       if (show_ray_tracing)
 	cv::circle(simulation_bresenham, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), 1);
@@ -216,7 +216,7 @@ int ParticleFilter::naive_ray_tracing(
     const Map& map) {
 
   auto x = x0, y = y0;
-  constexpr FLOAT eps = 0.8; // 1e-5;
+  constexpr FLOAT threshold = 0.2;
   for (size_t i=0; i<Laser::MaxRange; ++i) {
     x += dx;
     y += dy;
@@ -228,7 +228,7 @@ int ParticleFilter::naive_ray_tracing(
     if (ix >= map.max_x || iy >= map.max_y)
       break;
 
-    if (map.prob[ix][iy] > 1. - eps) {
+    if (map.prob[ix][iy] > threshold) {
       if (show_ray_tracing)
 	cv::circle(simulation_naive, cv::Point(ix, iy), 1, cv::Scalar(0, 0, 255), 1);
 
@@ -331,7 +331,7 @@ vector<Particle> ParticleFilter::low_variance_resampling(
   FLOAT r = u(gen);
 
   FLOAT cumsum = 0;
-  int counter = 0;
+  size_t counter = 0;
 
   for (size_t i=0; i<kParticles; ++i) {
     auto s = r + interval * i;
@@ -341,10 +341,10 @@ vector<Particle> ParticleFilter::low_variance_resampling(
       ++counter;
     }
 
-    int idx = counter;
-    if (!(idx >= 0 && idx < particles.size())) {
+    size_t idx = counter;
+    if (idx >= particles.size()) {
       printf("\33[31m[Error]\33[0m\n");
-      printf("idx = %d, counter = %d, sum = %f, cumsum = %f, i = %zu, r = %f, interval = %f, weights[%d] = %f\n",
+      printf("idx = %zu, counter = %zu, sum = %f, cumsum = %f, i = %zu, r = %f, interval = %f, weights[%zu] = %f\n",
 	  idx, counter, sum, cumsum, i, r, interval, counter, weights[counter]);
 
       exit(-1);

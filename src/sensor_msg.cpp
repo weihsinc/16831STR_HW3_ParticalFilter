@@ -22,8 +22,8 @@ SensorMsg::Type Odometry::type() const {
 }
 
 /* Implementation of class Laser */
-int Laser::kBeamPerScan;
-int Laser::MaxRange;
+size_t Laser::kBeamPerScan;
+size_t Laser::MaxRange;
 
 Laser::Laser(const vector<string> &tokens) :
   SensorMsg(tokens),

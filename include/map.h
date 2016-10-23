@@ -21,10 +21,10 @@ private:
 */
   int resolution;
   float offset_x, offset_y;
-  int size_x, size_y;
+  size_t size_x, size_y;
 
-  int min_x, max_x;
-  int min_y, max_y;
+  size_t min_x, max_x;
+  size_t min_y, max_y;
 
   std::vector<std::vector<float>> prob;
   cv::Mat cv_img;

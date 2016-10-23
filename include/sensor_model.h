@@ -19,7 +19,7 @@ public:
   static FLOAT exp_decay;
   static FLOAT sigma;
 
-  static float eval(int x, int z) {
+  static float eval(size_t x, size_t z) {
     
     static std::vector<FLOAT> likelihoods(4);
     const FLOAT denom = 1.; // 1. / (sqrt(2 * PI()) * ParticleFilter::sigma);
