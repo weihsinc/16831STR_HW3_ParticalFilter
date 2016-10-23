@@ -101,14 +101,10 @@ vector<Particle> ParticleFilter::init_particles() {
 
     Pose p(u_x(gen), u_y(gen), u_theta(gen));
 
-    size_t ix = p.x / map.resolution;
-    size_t iy = p.y / map.resolution;
-
-    if (map.prob[ix][iy] != 0)
-      continue;
-
-    particles[i] = p;
-    ++i;
+    if (map.inside(p)) {
+      particles[i] = p;
+      ++i;
+    }
   }
 
   return particles;
@@ -136,7 +132,7 @@ int ParticleFilter::naive_ray_tracing(
 
   auto x = x0, y = y0;
   constexpr FLOAT eps = 1e-5;
-  for (size_t i=0; i<Laser::MaxRange; ++i) {
+  for (size_t i=0; i<Laser::MaxRange; i+=10) {
     x += dx;
     y += dy;
 
@@ -243,10 +239,10 @@ void ParticleFilter::compute_sensor_model_per_beam(PDF& pdf, int z) {
 void ParticleFilter::compute_sensor_model(vector<PDF>& models, const vector<int> &z) {
   /*
   PDF test_pdf(Laser::MaxRange);
-  compute_sensor_model_per_beam(test_pdf, 2000);
+  compute_sensor_model_per_beam(test_pdf, 100);
   cout << test_pdf;
   exit(-1);
-  */
+  // */
 
   for (size_t i=0; i<z.size(); ++i)
     compute_sensor_model_per_beam(models[i], z[i]);
@@ -264,11 +260,11 @@ vector<float> ParticleFilter::compute_likelihood(
 
   // Compare every particle with every model pairwisely
   for (size_t i=0; i<kParticles; ++i) {
-    for (size_t j=0; j<Laser::kBeamPerScan; ++j) {
-      auto m = simulated_measurements[i][j];
-      assert(m < models[j].size());
-      likelihoods[i] += models[j][m];
-    }
+    auto& m = simulated_measurements[i];
+    auto& likelihood = likelihoods[i];
+
+    for (size_t j=0; j<Laser::kBeamPerScan; ++j)
+      likelihood += models[j][m[j]];
   }
 
   return likelihoods;
@@ -299,10 +295,8 @@ vector<Particle> ParticleFilter::low_variance_resampling(
 
   for (size_t i=0; i<kParticles; ++i) {
     auto s = r + interval * i;
-    /*
-    printf("i = %zu, s = %f (%f + %f * %zu), cumsum = %f (sum = %f), weights[%zu] = %f\n",
-	i, s, r, interval, i, cumsum, sum, i, weights[i]);
-	*/
+
+    // printf("i = %zu, s = %f (%f + %f * %zu), cumsum = %f (sum = %f), weights[%zu] = %f\n", i, s, r, interval, i, cumsum, sum, i, weights[i]);
 
     while (s >= cumsum) {
       cumsum += weights[counter];
@@ -310,8 +304,9 @@ vector<Particle> ParticleFilter::low_variance_resampling(
       ++counter;
     }
 
-    assert(counter - 1 >= 0 && counter - 1 < particles.size());
-    new_particles.push_back(particles[counter - 1]);
+    int idx = counter - 1;
+    assert(idx >= 0 && idx < particles.size());
+    new_particles.push_back(particles[idx]);
   }
 
   assert(new_particles.size() == particles.size());
@@ -329,7 +324,7 @@ void ParticleFilter::update_particles_through_motion_model(
   std::normal_distribution<>
     normal_x(delta.x, 10 /*ParticleFilter::motion_sigma*/),
     normal_y(delta.y, 10 /*ParticleFilter::motion_sigma*/),
-    normal_theta(delta.theta, 0.01 /*ParticleFilter::motion_sigma*/);
+    normal_theta(delta.theta, 2*PI() / 100 /*ParticleFilter::motion_sigma*/);
 
   for (size_t i=0; i<poses.size(); ++i) {
     poses[i].x += normal_x(gen);

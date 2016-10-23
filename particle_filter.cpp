@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
     .add("--map-filename", "filename of map", "data/map/wean.dat");
 
   cmd.addGroup("Particle Filter options:")
-    .add("-n", "number of particles", "1000");
+    .add("-n", "number of particles", "10000");
 
   cmd.addGroup("Motion Model options:")
     .add("--motion-sigma", "standard deviation of Gaussian Motion model", "5");
