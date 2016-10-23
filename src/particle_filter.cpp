@@ -92,8 +92,8 @@ vector<Particle> ParticleFilter::init_particles() {
 
   // Create uniform distribution sampler for x, y, theta
   std::uniform_real_distribution<>
-    u_x(map.min_x * map.resolution, map.max_x * map.resolution),
-    u_y(map.min_y * map.resolution, map.max_y * map.resolution),
+    u_x(/*map.min_x*/ 350 * map.resolution, /*map.max_x*/ 450 * map.resolution),
+    u_y(/*map.min_y*/ 420 * map.resolution, /*map.max_y*/ 500 * map.resolution),
     u_theta(-PI(), PI());
 
   size_t i=0;
@@ -264,8 +264,12 @@ vector<float> ParticleFilter::compute_likelihood(
     auto& likelihood = likelihoods[i];
 
     for (size_t j=0; j<Laser::kBeamPerScan; ++j)
-      likelihood += models[j][m[j]];
+      likelihood += std::log(models[j][m[j]]);
   }
+
+  auto max_log = *std::max_element(likelihoods.begin(), likelihoods.end());
+  for (size_t i=0; i<likelihoods.size(); ++i)
+    likelihoods[i] = std::exp(likelihoods[i] - max_log);
 
   return likelihoods;
 }
@@ -282,6 +286,9 @@ vector<Particle> ParticleFilter::low_variance_resampling(
   auto sum = std::accumulate(weights.begin(), weights.end(), 0.);
   FLOAT interval = sum / kParticles;
 
+  cout << "sum = " << sum << endl;
+  cout << "interval = " << interval << endl;
+
   if (sum == 0) {
     printf("\33[31mError!!\33[0m sum == 0\n");
     cv::waitKey(0);
@@ -296,15 +303,12 @@ vector<Particle> ParticleFilter::low_variance_resampling(
   for (size_t i=0; i<kParticles; ++i) {
     auto s = r + interval * i;
 
-    // printf("i = %zu, s = %f (%f + %f * %zu), cumsum = %f (sum = %f), weights[%zu] = %f\n", i, s, r, interval, i, cumsum, sum, i, weights[i]);
-
-    while (s >= cumsum) {
+    while (!(cumsum + weights[counter] > s)) {
       cumsum += weights[counter];
-      // printf("\33[33m * \33[0m cumsum += weights[%d] (%f) (=> %f)\n", counter, weights[counter], cumsum);
       ++counter;
     }
 
-    int idx = counter - 1;
+    int idx = counter;
     assert(idx >= 0 && idx < particles.size());
     new_particles.push_back(particles[idx]);
   }
