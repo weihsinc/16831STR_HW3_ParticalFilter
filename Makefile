@@ -1,11 +1,14 @@
 CXX=clang++-3.5
 CXX_FLAGS=-std=c++11 -O3 # -Wall -Wextra
 
-SRC=src/map.cpp \
-    src/sensor_msg.cpp \
-    src/data_parser.cpp \
-    src/utils.cpp \
-    src/particle_filter.cpp
+SRC=sensor_model.cpp \
+    map.cpp \
+    sensor_msg.cpp \
+    data_parser.cpp \
+    utils.cpp \
+    particle_filter.cpp
+
+SRC:=$(addprefix src/, $(SRC))
 
 EXECUTABLES=particle_filter
 	    # find_max_range

@@ -44,17 +44,17 @@ int main(int argc, char* argv[]) {
 
   ParticleFilter::motion_sigma = cmd["--motion-sigma"];
 
-  ParticleFilter::sensor_model_weights = splitAsFloat(cmd["--weights"], ',');
-  ParticleFilter::sigma = cmd["--sigma"];
-  ParticleFilter::exp_decay = cmd["--exp-decay"];
+  SensorModel::sensor_model_weights = splitAsFloat(cmd["--weights"], ',');
+  SensorModel::sigma = cmd["--sigma"];
+  SensorModel::exp_decay = cmd["--exp-decay"];
 
   clog
     << "# Beams per scan    : " << Laser::kBeamPerScan << endl
     << "Laser Max Range     : " << Laser::MaxRange << endl
     << "motion sigma        : " << ParticleFilter::motion_sigma << endl
-    << "sensor model weights: " << ParticleFilter::sensor_model_weights
-    << "standard deviation  : " << ParticleFilter::sigma << endl
-    << "exponential decay   : " << ParticleFilter::exp_decay << endl;
+    << "sensor model weights: " << SensorModel::sensor_model_weights
+    << "standard deviation  : " << SensorModel::sigma << endl
+    << "exponential decay   : " << SensorModel::exp_decay << endl;
 
   // Load map
   Map map(map_fn);

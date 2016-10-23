@@ -5,6 +5,7 @@
 #include <pose.h>
 #include <sensor_msg.h>
 #include <data_parser.h>
+#include <sensor_model.h>
 
 typedef std::vector<FLOAT> PDF;
 typedef Pose Particle;
@@ -12,9 +13,6 @@ typedef Pose Particle;
 class ParticleFilter {
 public:
   static FLOAT motion_sigma;
-  static std::vector<FLOAT> sensor_model_weights;
-  static FLOAT exp_decay;
-  static FLOAT sigma;
 
   static std::random_device rd;
   static std::mt19937 gen;
@@ -70,27 +68,12 @@ private:
   void simulate_laser_scan(Measurement& m, const Pose& pose, const Map& map);
 
   /*
-     Turn a single int measurement into a probability distribution based on the 
-     sensor model.
-   */
-  void compute_sensor_model_per_beam(PDF& pdf, int z);
-
-  /* 
-     Turn a laser beam (180 integers) into a vector of probability distributions
-   */
-  void compute_sensor_model(std::vector<PDF>& models, const std::vector<int> &z);
-
-  float compute_likelihood(
-      const Measurement& m,
-      const std::vector<PDF>& pdfs);
-
-  /*
      Compare Laser measurements (per scan, meaning 180 feature vectors) to the
      measurements simulated at all particle's pose.
      */
   std::vector<FLOAT> compute_likelihood(
       const std::vector<Measurement>& simulated_measurements,
-      const std::vector<PDF>& models);
+      const Measurement& measurement);
   
   /*
      Low variance re-sampling

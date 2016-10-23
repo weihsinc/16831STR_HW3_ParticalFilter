@@ -7,9 +7,6 @@
 #include <particle_filter.h>
 using namespace std;
 
-std::vector<FLOAT> ParticleFilter::sensor_model_weights(4);
-FLOAT ParticleFilter::exp_decay;
-FLOAT ParticleFilter::sigma;
 FLOAT ParticleFilter::motion_sigma;
 
 std::random_device ParticleFilter::rd;
@@ -61,14 +58,14 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
     else {
       Laser* laser = dynamic_cast<Laser*>(sensor_msg);
 
-      compute_sensor_model(models, laser->ranges);
+      // compute_sensor_model(models, laser->ranges);
       
-      simulation = map.cv_img.clone();
+      // simulation = map.cv_img.clone();
       for (size_t j=0; j<kParticles; ++j)
 	simulate_laser_scan(simulated_measurements[j], particles[j], map);
-      cv::imshow("Simulation", simulation);
+      // cv::imshow("Simulation", simulation);
 
-      auto likelihoods = compute_likelihood(simulated_measurements, models);
+      auto likelihoods = compute_likelihood(simulated_measurements, laser->ranges);
 
       for (size_t j=0; j<particles.size(); ++j) {
 	if (!map.inside(particles[j]))
@@ -82,7 +79,7 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
       particles = low_variance_resampling(particles, likelihoods);
     }
 
-    cv::waitKey(0);
+    cv::waitKey(10);
   }
 
   return poses;
@@ -150,7 +147,7 @@ int ParticleFilter::naive_ray_tracing(
       break;
 
     if (map.prob[ix][iy] > 1. - eps) {
-      cv::circle(simulation, cv::Point(ix, iy), 1, cv::Scalar(0, 0, 255), 1);
+      // cv::circle(simulation, cv::Point(ix, iy), 1, cv::Scalar(0, 0, 255), 1);
       return sqrt(pow(x - x0, 2) + pow(y - y0, 2));
     }
   }
@@ -199,92 +196,26 @@ void ParticleFilter::simulate_laser_scan(Measurement& m, const Pose& pose, const
 }
 
 /*
-   <Sensor Model>
-   Turn a single int measurement into a probability distribution based on the 
-   sensor model.
-   1. Measurement Noise    - Gaussian distribution centered at measurement z
-   2. Unexpected Obstacles - Exponential decay
-   3. Random Measurement   - Uniform distribution
-   4. Max range            - a peak at z_max
- */
-void ParticleFilter::compute_sensor_model_per_beam(PDF& pdf, int z) {
-
-  // Precompute the denominator in Gaussian distribution
-  // denom = \frac{1}{\sqrt {2\pi} \sigma}
-  const FLOAT denom = 1.; // 1. / (sqrt(2 * PI()) * ParticleFilter::sigma);
-  auto& weights = ParticleFilter::sensor_model_weights;
-
-  vector<FLOAT> likelihoods(4);
-  FLOAT sum = 0;
-
-  std::fill(pdf.begin(), pdf.end(), 0);
-  for (size_t i=0; i<pdf.size(); ++i) {
-
-    likelihoods[0] = denom * std::exp(-0.5 * pow((FLOAT) (i - z) / ParticleFilter::sigma, 2));
-    likelihoods[1] = i < z ? std::exp(-ParticleFilter::exp_decay * i) : 0.;
-    likelihoods[2] = 1. / Laser::MaxRange;
-    likelihoods[3] = i > Laser::MaxRange - 50 ? 1. : 0.;
-
-    for (size_t j=0; j<4; ++j)
-      pdf[i] += likelihoods[j] * weights[j];
-
-    sum += pdf[i];
-  }
-
-  for (size_t i=0; i<pdf.size(); ++i)
-    pdf[i] /= sum;
-}
-
-/* 
-   <Sensor PDF>
-   Turn a laser beam (180 integers) into a vector of probability distributions
- */
-void ParticleFilter::compute_sensor_model(vector<PDF>& models, const vector<int> &z) {
-  /*
-  PDF test_pdf(Laser::MaxRange);
-  compute_sensor_model_per_beam(test_pdf, 100);
-  cout << test_pdf;
-  exit(-1);
-  // */
-
-  for (size_t i=0; i<z.size(); ++i)
-    compute_sensor_model_per_beam(models[i], z[i]);
-}
-
-float ParticleFilter::compute_likelihood(
-    const Measurement& m,
-    const vector<PDF>& pdfs) {
-
-  float likelihood;
-
-  for (size_t i=0; i<Laser::kBeamPerScan; ++i) {
-    likelihood += pdfs[i][m[i]];
-    // likelihood += std::log(pdfs[i][m[i]]);
-  }
-
-  return likelihood;
-}
-
-/*
    Compare Laser measurements (per scan, meaning 180 feature vectors) to the
    measurements simulated at all particle's pose.
    */
 vector<float> ParticleFilter::compute_likelihood(
     const vector<Measurement>& simulated_measurements,
-    const vector<PDF>& pdfs) {
+    const Measurement& measurement) {
 
   vector<FLOAT> likelihoods(kParticles, 0);
 
   // Compare every particle with every model pairwisely
   for (size_t i=0; i<kParticles; ++i) {
-    likelihoods[i] = compute_likelihood(simulated_measurements[i], pdfs);
+    for (size_t j=0; j<Laser::kBeamPerScan; ++j) {
+      auto l = SensorModel::eval(simulated_measurements[i][j], measurement[j]);
+      likelihoods[i] += std::log(l);
+    }
   }
 
-  /*
   auto max_log = *std::max_element(likelihoods.begin(), likelihoods.end());
   for (size_t i=0; i<likelihoods.size(); ++i)
     likelihoods[i] = std::exp(likelihoods[i] - max_log);
-  */
 
   return likelihoods;
 }
@@ -300,14 +231,7 @@ vector<Particle> ParticleFilter::low_variance_resampling(
 
   auto sum = std::accumulate(weights.begin(), weights.end(), 0.);
   FLOAT interval = sum / kParticles;
-
-  cout << "sum = " << sum << endl;
-  cout << "interval = " << interval << endl;
-
-  if (sum == 0) {
-    printf("\33[31mError!!\33[0m sum == 0\n");
-    cv::waitKey(0);
-  }
+  assert(sum != 0);
 
   std::uniform_real_distribution<> u(0, interval * 0.99);
   FLOAT r = u(gen);
