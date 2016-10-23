@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
   ParticleFilter::motion_sigma = cmd["--motion-sigma"];
   ParticleFilter::show_ray_tracing = cmd["--show-ray-tracing"];
 
-  SensorModel::sensor_model_weights = splitAsFloat(cmd["--weights"], ',');
+  SensorModel::weights = splitAsFloat(cmd["--weights"], ',');
   SensorModel::sigma = cmd["--sigma"];
   SensorModel::exp_decay = cmd["--exp-decay"];
 
@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
     << "# Beams per scan    : " << Laser::kBeamPerScan << endl
     << "Laser Max Range     : " << Laser::MaxRange << endl
     << "motion sigma        : " << ParticleFilter::motion_sigma << endl
-    << "sensor model weights: " << SensorModel::sensor_model_weights
+    << "sensor model weights: " << SensorModel::weights
     << "standard deviation  : " << SensorModel::sigma << endl
     << "exponential decay   : " << SensorModel::exp_decay << endl;
 
