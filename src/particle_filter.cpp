@@ -95,16 +95,16 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 void ParticleFilter::init_particles() {
   // Create uniform distribution sampler for x, y, theta
   std::uniform_real_distribution<>
-    u_x(map.min_x * map.resolution, map.max_x * map.resolution),
-    u_y(map.min_y * map.resolution, map.max_y * map.resolution),
-    // u_x(/*map.min_x*/ 350 * map.resolution, /*map.max_x*/ 450 * map.resolution),
-    // u_y(/*map.min_y*/ 420 * map.resolution, /*map.max_y*/ 500 * map.resolution),
+    /*u_x(map.min_x * map.resolution, map.max_x * map.resolution),
+    u_y(map.min_y * map.resolution, map.max_y * map.resolution),*/
+    u_x(350 * map.resolution, 450 * map.resolution),
+    u_y(420 * map.resolution, 500 * map.resolution),
     u_theta(-PI, PI);
 
   size_t i=0;
   while (i < kParticles) {
 
-    Pose p(u_x(gen), u_y(gen), u_theta(gen));
+    Pose p(u_x(gen), u_y(gen), PI/2 /*u_theta(gen)*/);
 
     if (map.inside(p)) {
       particles[i] = p;
@@ -341,7 +341,10 @@ vector<Particle> ParticleFilter::low_variance_resampling(
 
   vector<Particle> new_particles;
 
-  auto sum = std::accumulate(weights.begin(), weights.end(), 0.);
+  FLOAT sum = 0;
+  for (auto& w : weights)
+    sum += w;
+
   FLOAT interval = sum / kParticles;
   assert(sum != 0);
   assert(sum == sum);
@@ -355,6 +358,7 @@ vector<Particle> ParticleFilter::low_variance_resampling(
   for (size_t i=0; i<kParticles; ++i) {
     auto s = r + interval * i;
 
+    // printf("cumsum = %f, weights[%zu] = %f, s = %f\n", cumsum, counter, weights[counter], s);
     while (!(cumsum + weights[counter] > s)) {
       cumsum += weights[counter];
       ++counter;
