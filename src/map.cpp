@@ -6,6 +6,18 @@
 using namespace std;
 
 Map::Map(const string& mapName) {
+  this->read_map_from_file(mapName);
+
+  cv_img = cv::Mat(size_y, size_x, CV_8UC3, cv::Scalar(0, 0, 0));
+  for (size_t i=0; i<size_x; ++i) {
+    for (size_t j=0; j<size_y; ++j) {
+      for (size_t k=0; k<3; ++k)
+	cv_img.data[j*cv_img.step + i * 3 + k] = (1. - this->prob[i][j]) * 255;
+    }
+  }
+}
+
+void Map::read_map_from_file(const string& mapName) {
   char line[256];
   FILE *fp;
 
@@ -17,14 +29,14 @@ Map::Map(const string& mapName) {
       && (strncmp("global_map[0]", line , 13) != 0)) {
     if(strncmp(line, "robot_specifications->resolution", 32) == 0)
       if(sscanf(&line[32], "%d", &(this->resolution)) != 0)
-	printf("# Map resolution: %d cm\n", this->resolution);
+	fprintf(stderr, "# Map resolution: %d cm\n", this->resolution);
     if(strncmp(line, "robot_specifications->autoshifted_x", 35) == 0)
       if(sscanf(&line[35], "%g", &(this->offset_x)) != 0) {
-	printf("# Map offsetX: %g cm\n", this->offset_x);
+	fprintf(stderr, "# Map offsetX: %g cm\n", this->offset_x);
       }
     if(strncmp(line, "robot_specifications->autoshifted_y", 35) == 0) {
       if (sscanf(&line[35], "%g", &(this->offset_y)) != 0) {
-	printf("# Map offsetY: %g cm\n", this->offset_y);
+	fprintf(stderr, "# Map offsetY: %g cm\n", this->offset_y);
       }
     }
   }
@@ -32,7 +44,7 @@ Map::Map(const string& mapName) {
   if(sscanf(line,"global_map[0]: %d %d", &this->size_y, &this->size_x) != 2)
     throw std::runtime_error("ERROR: corrupted file " + mapName);
 
-  printf("# Map size: %d %d\n", this->size_x, this->size_y);
+  fprintf(stderr, "# Map size: %d %d\n", this->size_x, this->size_y);
 
   // new_hornetsoft_map(map, this->size_x, this->size_y);
 

@@ -45,7 +45,7 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 
   // 2) Perform particle filter algorithm iteratively
   for (size_t i=1; i<sensor_msgs.size(); ++i) {
-    printf("Processing %zu-th message\n", i);
+    // printf("Processing %zu-th message\n", i);
 
     auto sensor_msg = sensor_msgs[i];
     auto u_t = sensor_msgs[i]->pose - sensor_msgs[i-1]->pose;
@@ -65,6 +65,22 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 	simulate_laser_scan(simulated_measurements[j], particles[j], map);
 
       auto likelihoods = compute_likelihood(simulated_measurements, models);
+
+      for (size_t j=0; j<particles.size(); ++j) {
+	size_t ix = particles[j].x / map.resolution;
+	size_t iy = particles[j].y / map.resolution;
+
+	if (!(ix < map.size_x && iy < map.size_y && map.prob[ix][iy] == 0))
+	  likelihoods[j] *= 0;
+      }
+
+      auto centroid = compute_particle_centroid(particles, likelihoods);
+
+      show_particles_on_map(particles);
+
+      cout << "pose[" << i << "] = " << centroid << endl;
+
+      particles = low_variance_resampling(particles, likelihoods);
     }
   }
 
@@ -79,12 +95,24 @@ vector<Particle> ParticleFilter::init_particles() {
 
   // Create uniform distribution sampler for x, y, theta
   std::uniform_real_distribution<>
-    u_x(map.min_x, map.max_x),
-    u_y(map.min_y, map.max_y),
+    u_x(map.min_x * map.resolution, map.max_x * map.resolution),
+    u_y(map.min_y * map.resolution, map.max_y * map.resolution),
     u_theta(-PI(), PI());
 
-  for (size_t i=0; i<kParticles; ++i)
-    particles[i] = Pose(u_x(gen), u_y(gen), u_theta(gen));
+  size_t i=0;
+  while (i < kParticles) {
+
+    Pose p(u_x(gen), u_y(gen), u_theta(gen));
+
+    size_t ix = p.x / map.resolution;
+    size_t iy = p.y / map.resolution;
+
+    if (map.prob[ix][iy] != 0)
+      continue;
+
+    particles[i] = p;
+    ++i;
+  }
 
   return particles;
 }
@@ -115,11 +143,11 @@ int ParticleFilter::naive_ray_tracing(
     x += dx;
     y += dy;
 
-    size_t ix = x;
-    size_t iy = y;
+    size_t ix = x / map.resolution;
+    size_t iy = y / map.resolution;
 
     // Since ix are unsigned, if x is negative, ix will be a very large number
-    if (ix > map.max_x || iy > map.max_y)
+    if (ix >= map.max_x || iy >= map.max_y)
       break;
 
     /*
@@ -187,7 +215,7 @@ void ParticleFilter::compute_sensor_model_per_beam(PDF& pdf, int z) {
 
   // Precompute the denominator in Gaussian distribution
   // denom = \frac{1}{\sqrt {2\pi} \sigma}
-  const FLOAT denom = 1. / (sqrt(2 * PI()) * ParticleFilter::sigma);
+  const FLOAT denom = 1.; // 1. / (sqrt(2 * PI()) * ParticleFilter::sigma);
   auto& weights = ParticleFilter::sensor_model_weights;
 
   vector<FLOAT> likelihoods(4);
@@ -196,10 +224,10 @@ void ParticleFilter::compute_sensor_model_per_beam(PDF& pdf, int z) {
   std::fill(pdf.begin(), pdf.end(), 0);
   for (size_t i=0; i<pdf.size(); ++i) {
 
-    likelihoods[0] = denom * std::exp(0.5 * pow((FLOAT) (i - z) / ParticleFilter::sigma, 2));
-    likelihoods[1] = std::exp(-ParticleFilter::exp_decay * i);
+    likelihoods[0] = denom * std::exp(-0.5 * pow((FLOAT) (i - z) / ParticleFilter::sigma, 2));
+    likelihoods[1] = i < z ? std::exp(-ParticleFilter::exp_decay * i) : 0.;
     likelihoods[2] = 1. / Laser::MaxRange;
-    likelihoods[3] = i == Laser::MaxRange ? 1. : 0.;
+    likelihoods[3] = i > Laser::MaxRange - 50 ? 1. : 0.;
 
     for (size_t j=0; j<4; ++j)
       pdf[i] += likelihoods[j] * weights[j];
@@ -216,6 +244,13 @@ void ParticleFilter::compute_sensor_model_per_beam(PDF& pdf, int z) {
    Turn a laser beam (180 integers) into a vector of probability distributions
  */
 void ParticleFilter::compute_sensor_model(vector<PDF>& models, const vector<int> &z) {
+  /*
+  PDF test_pdf(Laser::MaxRange);
+  compute_sensor_model_per_beam(test_pdf, 2000);
+  cout << test_pdf;
+  exit(-1);
+  */
+
   for (size_t i=0; i<z.size(); ++i)
     compute_sensor_model_per_beam(models[i], z[i]);
 }
@@ -243,6 +278,39 @@ vector<float> ParticleFilter::compute_likelihood(
 }
 
 /*
+   Low variance re-sampling
+ */
+vector<Particle> ParticleFilter::low_variance_resampling(
+    const vector<Particle>& particles,
+    const vector<FLOAT>& weights) {
+
+  vector<Particle> new_particles;
+
+  auto sum = std::accumulate(weights.begin(), weights.end(), 0.);
+  FLOAT interval = sum / kParticles;
+
+  std::uniform_real_distribution<> u(0, interval);
+  FLOAT r = u(gen);
+
+  FLOAT cumsum = 0;
+  int counter = 0;
+
+  for (size_t i=0; i<kParticles; ++i) {
+    while (r + interval * i >= cumsum) {
+      cumsum += weights[counter];
+      ++counter;
+    }
+
+    assert(counter - 1 >= 0 && counter - 1 < particles.size());
+    new_particles.push_back(particles[counter - 1]);
+  }
+
+  assert(new_particles.size() == particles.size());
+
+  return new_particles;
+}
+
+/*
    <Motion Model>
  */
 void ParticleFilter::update_particles_through_motion_model(
@@ -250,13 +318,52 @@ void ParticleFilter::update_particles_through_motion_model(
     vector<Pose>& poses) {
 
   std::normal_distribution<>
-    normal_x(delta.x, ParticleFilter::motion_sigma),
-    normal_y(delta.y, ParticleFilter::motion_sigma),
-    normal_theta(delta.theta, ParticleFilter::motion_sigma);
+    normal_x(delta.x, 10 /*ParticleFilter::motion_sigma*/),
+    normal_y(delta.y, 10 /*ParticleFilter::motion_sigma*/),
+    normal_theta(delta.theta, 0.01 /*ParticleFilter::motion_sigma*/);
 
   for (size_t i=0; i<poses.size(); ++i) {
     poses[i].x += normal_x(gen);
     poses[i].y += normal_y(gen);
     poses[i].theta += normal_theta(gen);
   }
+}
+
+/*
+   Compute particle centroid (weighted sum)
+ */
+Particle ParticleFilter::compute_particle_centroid(
+    const std::vector<Particle>& particles,
+    const std::vector<FLOAT>& weights) {
+
+  Particle centroid;
+  for (size_t i=0; i<particles.size(); ++i) {
+    centroid += particles[i] * weights[i];
+  }
+
+  centroid /= particles.size();
+
+  return centroid;
+}
+
+/*
+   Show particles on map
+ */
+void ParticleFilter::show_particles_on_map(const vector<Particle>& particles) const {
+  cv::Mat img = map.cv_img.clone();
+
+  for (size_t i=0; i<particles.size(); ++i) {
+
+    size_t ix = particles[i].x / map.resolution;
+    size_t iy = particles[i].y / map.resolution;
+
+    if (ix >= map.max_x || iy >= map.max_y)
+      continue;
+
+    cv::circle(img, cv::Point(ix, iy), 1, cv::Scalar(0, 0, 255), 2);
+    // printf("ix = %zu, iy = %zu\n", ix, iy);
+  }
+
+  cv::imshow("Display window", img);
+  cv::waitKey(10);
 }

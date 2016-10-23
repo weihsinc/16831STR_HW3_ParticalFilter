@@ -6,10 +6,6 @@
 #include <sensor_msg.h>
 #include <data_parser.h>
 
-// OpenCV (for visualization and debugging)
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-
 typedef std::vector<FLOAT> PDF;
 typedef Pose Particle;
 
@@ -91,6 +87,13 @@ private:
   std::vector<FLOAT> compute_likelihood(
       const std::vector<Measurement>& simulated_measurements,
       const std::vector<PDF>& models);
+  
+  /*
+     Low variance re-sampling
+    */
+  std::vector<Particle> low_variance_resampling(
+      const std::vector<Particle>& particles,
+      const std::vector<FLOAT>& weights);
 
   /*
      Update particles through motion model assuming it's Gaussian distribution
@@ -98,6 +101,18 @@ private:
   void update_particles_through_motion_model(
       const Pose& delta,
       std::vector<Pose>& poses);
+  
+  /*
+     Compute particle centroid (weighted sum)
+    */
+  Particle compute_particle_centroid(
+      const std::vector<Particle>& particles,
+      const std::vector<FLOAT>& weights);
+
+  /*
+     Show particles on map
+   */
+  void show_particles_on_map(const std::vector<Particle>& particles) const;
 
   // Data Member
   const Map& map;

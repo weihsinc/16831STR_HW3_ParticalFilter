@@ -18,17 +18,17 @@ int main(int argc, char* argv[]) {
     .add("--map-filename", "filename of map", "data/map/wean.dat");
 
   cmd.addGroup("Particle Filter options:")
-    .add("-n", "number of particles", "10000");
+    .add("-n", "number of particles", "1000");
 
   cmd.addGroup("Motion Model options:")
-    .add("--motion-sigma", "standard deviation of Gaussian Motion model", "0.01");
+    .add("--motion-sigma", "standard deviation of Gaussian Motion model", "5");
 
   cmd.addGroup("Sensor Model options:")
     .add("--max-range", "max range of the laser sensor")
     .add("--k-beam-per-scan", "number of beam per LASER scan", "180")
-    .add("--weights", "weights of Gaussian, Exponential Decay, Uniform, Max Range", "1,1,1,1")
-    .add("--sigma", "standard deviation of Gaussian model", "0.01")
-    .add("--exp-decay", "exponential decay rate k in exp(-kt)", "2");
+    .add("--weights", "weights of Gaussian, Exponential Decay, Uniform, Max Range", "1,0.2,100,1")
+    .add("--sigma", "standard deviation of Gaussian model", "50")
+    .add("--exp-decay", "exponential decay rate k in exp(-kt)", "1e-3");
 
   cmd.addGroup("Example usage: ./particle_filter data/log/robotdata2.log");
 
@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
   ParticleFilter::sigma = cmd["--sigma"];
   ParticleFilter::exp_decay = cmd["--exp-decay"];
 
-  cout
+  clog
     << "# Beams per scan    : " << Laser::kBeamPerScan << endl
     << "Laser Max Range     : " << Laser::MaxRange << endl
     << "motion sigma        : " << ParticleFilter::motion_sigma << endl
@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
 
   // Load map
   Map map(map_fn);
-  cout << map << endl;
+  clog << map << endl;
 
   // Load data log
   vector<SensorMsg*> sensor_msgs = parse_robot_data(robot_data);
@@ -67,12 +67,8 @@ int main(int argc, char* argv[]) {
     cout << *sensor_msg << endl;
     */
 
-  /* basic OpenCV example for later debugging
-  cv::Mat image = cv::imread("/home/boton/network_diagram.png", CV_LOAD_IMAGE_COLOR);   // Read the file
-  cv::namedWindow( "Display window", cv::WINDOW_AUTOSIZE );
-  cv::imshow( "Display window", image );
-  cv::waitKey(0);
-  // */
+  // basic OpenCV example for later debugging
+  cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE);
 
   // Initialie particle filter
   ParticleFilter particle_filter(map, kParticles);

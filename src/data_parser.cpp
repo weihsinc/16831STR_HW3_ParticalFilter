@@ -26,8 +26,10 @@ vector<SensorMsg*> parse_robot_data(const string& robotdata_log_fn) {
     sensor_msgs.push_back(sensor_msg);
   }
 
+  /*
   printf("Successfully parsed \33[33m%zu\33[0m sensor messages\n",
       sensor_msgs.size());
+      */
 
   fin.close();
 
