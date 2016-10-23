@@ -17,6 +17,13 @@ Map::Map(const string& mapName) {
   }
 }
 
+bool Map::inside(const Pose& p) const {
+  size_t ix = p.x / resolution;
+  size_t iy = p.y / resolution;
+
+  return ix < size_x && iy < size_y && prob[ix][iy] == 0;
+}
+
 void Map::read_map_from_file(const string& mapName) {
   char line[256];
   FILE *fp;

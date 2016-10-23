@@ -6,11 +6,14 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include <pose.h>
+
 class Map {
 public:
 
   Map(const std::string& map_fn);
 
+  bool inside(const Pose& p) const;
   void read_map_from_file(const std::string& mapName);
 
 /*

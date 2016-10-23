@@ -66,17 +66,14 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 
       auto likelihoods = compute_likelihood(simulated_measurements, models);
 
-      for (size_t j=0; j<particles.size(); ++j) {
-	size_t ix = particles[j].x / map.resolution;
-	size_t iy = particles[j].y / map.resolution;
+      show_particles_on_map(particles);
 
-	if (!(ix < map.size_x && iy < map.size_y && map.prob[ix][iy] == 0))
+      for (size_t j=0; j<particles.size(); ++j) {
+	if (!map.inside(particles[j]))
 	  likelihoods[j] *= 0;
       }
 
       auto centroid = compute_particle_centroid(particles, likelihoods);
-
-      show_particles_on_map(particles);
 
       cout << "pose[" << i << "] = " << centroid << endl;
 
@@ -289,15 +286,27 @@ vector<Particle> ParticleFilter::low_variance_resampling(
   auto sum = std::accumulate(weights.begin(), weights.end(), 0.);
   FLOAT interval = sum / kParticles;
 
-  std::uniform_real_distribution<> u(0, interval);
+  if (sum == 0) {
+    printf("\33[31mError!!\33[0m sum == 0\n");
+    cv::waitKey(0);
+  }
+
+  std::uniform_real_distribution<> u(0, interval * 0.99);
   FLOAT r = u(gen);
 
   FLOAT cumsum = 0;
   int counter = 0;
 
   for (size_t i=0; i<kParticles; ++i) {
-    while (r + interval * i >= cumsum) {
+    auto s = r + interval * i;
+    /*
+    printf("i = %zu, s = %f (%f + %f * %zu), cumsum = %f (sum = %f), weights[%zu] = %f\n",
+	i, s, r, interval, i, cumsum, sum, i, weights[i]);
+	*/
+
+    while (s >= cumsum) {
       cumsum += weights[counter];
+      // printf("\33[33m * \33[0m cumsum += weights[%d] (%f) (=> %f)\n", counter, weights[counter], cumsum);
       ++counter;
     }
 
