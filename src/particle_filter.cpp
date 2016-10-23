@@ -16,7 +16,8 @@ ParticleFilter::ParticleFilter(const Map& map, const int kParticles):
   map(map), kParticles(kParticles) {
 }
 
-constexpr FLOAT PI() { return std::atan(1) * 4; }
+#define PI 3.14159265359
+// constexpr FLOAT PI() { return std::atan(1) * 4; }
 
 /*
    Perform particle filter algorithm
@@ -50,6 +51,7 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 
     show_particles_on_map(particles);
 
+    auto t_start_total = timer_start();
     update_particles_through_motion_model(u_t, particles);
 
     if (sensor_msg->type() == SensorMsg::Odometry) {
@@ -58,11 +60,11 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
     else {
       Laser* laser = dynamic_cast<Laser*>(sensor_msg);
 
-      // compute_sensor_model(models, laser->ranges);
-      
       // simulation = map.cv_img.clone();
+      auto t_start = timer_start();
       for (size_t j=0; j<kParticles; ++j)
 	simulate_laser_scan(simulated_measurements[j], particles[j], map);
+      printf("Took %g to do ray-tracing\n", timer_end(t_start));
       // cv::imshow("Simulation", simulation);
 
       auto likelihoods = compute_likelihood(simulated_measurements, laser->ranges);
@@ -72,12 +74,14 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 	  likelihoods[j] *= 0;
       }
 
+      /*
       auto centroid = compute_particle_centroid(particles, likelihoods);
-
       cout << "pose[" << i << "] = " << centroid << endl;
+      // */
 
       particles = low_variance_resampling(particles, likelihoods);
     }
+    printf("Took %g in total\n", timer_end(t_start_total));
 
     cv::waitKey(10);
   }
@@ -97,7 +101,7 @@ vector<Particle> ParticleFilter::init_particles() {
     u_y(map.min_y * map.resolution, map.max_y * map.resolution),
     // u_x(/*map.min_x*/ 350 * map.resolution, /*map.max_x*/ 450 * map.resolution),
     // u_y(/*map.min_y*/ 420 * map.resolution, /*map.max_y*/ 500 * map.resolution),
-    u_theta(-PI(), PI());
+    u_theta(-PI, PI);
 
   size_t i=0;
   while (i < kParticles) {
@@ -188,8 +192,8 @@ void ParticleFilter::simulate_laser_scan(Measurement& m, const Pose& pose, const
     FLOAT y0 = lidar.y;
 
     // minus 90 degree because the first beam start from the right
-    FLOAT dx = std::cos(lidar.theta + float(i) / 180 * PI() - PI() / 2);
-    FLOAT dy = std::sin(lidar.theta + float(i) / 180 * PI() - PI() / 2);
+    FLOAT dx = std::cos(lidar.theta + float(i) / 180 * PI - PI / 2);
+    FLOAT dy = std::sin(lidar.theta + float(i) / 180 * PI - PI / 2);
 
     m[i] = simulate_laser_beam(x0, y0, dx, dy, map);
   }
@@ -267,7 +271,7 @@ void ParticleFilter::update_particles_through_motion_model(
   std::normal_distribution<>
     normal_x(delta.x, ParticleFilter::motion_sigma),
     normal_y(delta.y, ParticleFilter::motion_sigma),
-    normal_theta(delta.theta, 2*PI() / 100 /*ParticleFilter::motion_sigma*/);
+    normal_theta(delta.theta, 2*PI / 100 /*ParticleFilter::motion_sigma*/);
 
   for (size_t i=0; i<poses.size(); ++i) {
     poses[i].x += normal_x(gen);
