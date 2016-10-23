@@ -16,6 +16,17 @@ std::ostream& operator << (std::ostream& os, const std::vector<T>& arr) {
   return os;
 }
 
+template <typename T>
+std::vector<bool> operator == (const std::vector<T>& arr, const T val) {
+  std::vector<bool> ind(arr.size());
+  for (size_t i=0; i<arr.size(); ++i)
+    ind[i] = (arr[i] == val);
+  return ind;
+}
+
+bool any(const std::vector<bool>& arr);
+bool all(const std::vector<bool>& arr);
+
 std::vector<float> splitAsFloat(const std::string &s, char delim = ' ');
 
 // call this function to start a nanosecond-resolution timer

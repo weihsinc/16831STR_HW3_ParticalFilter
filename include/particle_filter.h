@@ -13,6 +13,7 @@ typedef Pose Particle;
 class ParticleFilter {
 public:
   static FLOAT motion_sigma;
+  static bool show_ray_tracing;
 
   static std::random_device rd;
   static std::mt19937 gen;
@@ -44,7 +45,7 @@ private:
   int Bresenham_ray_tracing(
       const int x_start, const int y_start,
       const int dx, const int dy,
-      const Map& map);
+      const Map& map, bool debug = false);
 
   /*
      Perform 2-D naive ray-tracing on the map.
@@ -102,7 +103,8 @@ private:
   void show_particles_on_map(const std::vector<Particle>& particles) const;
 
   // Data Member
-  cv::Mat simulation;
+  cv::Mat simulation_naive;
+  cv::Mat simulation_bresenham;
   const Map& map;
   int kParticles;
 };

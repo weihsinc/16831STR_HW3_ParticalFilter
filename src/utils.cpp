@@ -42,3 +42,19 @@ double timer_end(struct timespec start_time){
   long diffInNanos = (end_time.tv_sec - start_time.tv_sec) * 1e9 + end_time.tv_nsec - start_time.tv_nsec;
   return double(diffInNanos) / 1e9;
 }
+
+bool any(const vector<bool>& arr) {
+  for (const auto& x : arr) {
+    if (x)
+      return true;
+  }
+  return false;
+}
+
+bool all(const vector<bool>& arr) {
+  for (const auto& x : arr) {
+    if (!x)
+      return false;
+  }
+  return true;
+}

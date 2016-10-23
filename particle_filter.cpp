@@ -15,7 +15,8 @@ int main(int argc, char* argv[]) {
   cmd.add("robot_data_log");
   
   cmd.addGroup("General options:")
-    .add("--map-filename", "filename of map", "data/map/wean.dat");
+    .add("--map-filename", "filename of map", "data/map/wean.dat")
+    .add("--show-ray-tracing", "turn on/off ray tracing result", "false");
 
   cmd.addGroup("Particle Filter options:")
     .add("-n", "number of particles", "1000");
@@ -43,6 +44,7 @@ int main(int argc, char* argv[]) {
   int kParticles = cmd["-n"];
 
   ParticleFilter::motion_sigma = cmd["--motion-sigma"];
+  ParticleFilter::show_ray_tracing = cmd["--show-ray-tracing"];
 
   SensorModel::sensor_model_weights = splitAsFloat(cmd["--weights"], ',');
   SensorModel::sigma = cmd["--sigma"];
@@ -69,7 +71,10 @@ int main(int argc, char* argv[]) {
 
   // basic OpenCV example for later debugging
   cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE);
-  cv::namedWindow("Simulation", cv::WINDOW_AUTOSIZE);
+  if (ParticleFilter::show_ray_tracing) {
+    cv::namedWindow("Ray-Tracing Simulation (Naive)", cv::WINDOW_AUTOSIZE);
+    cv::namedWindow("Ray-Tracing Simulation (Bresenham)", cv::WINDOW_AUTOSIZE);
+  }
 
   // Initialie particle filter
   ParticleFilter particle_filter(map, kParticles);

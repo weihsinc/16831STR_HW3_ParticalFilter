@@ -8,6 +8,7 @@
 using namespace std;
 
 FLOAT ParticleFilter::motion_sigma;
+bool ParticleFilter::show_ray_tracing;
 
 std::random_device ParticleFilter::rd;
 std::mt19937 ParticleFilter::gen(rd());
@@ -60,25 +61,36 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
     else {
       Laser* laser = dynamic_cast<Laser*>(sensor_msg);
 
-      // simulation = map.cv_img.clone();
+      // Ray tracing
+      if (show_ray_tracing) {
+	simulation_naive = map.cv_img.clone();
+	simulation_bresenham = map.cv_img.clone();
+      }
+
       auto t_start = timer_start();
       for (size_t j=0; j<kParticles; ++j)
 	simulate_laser_scan(simulated_measurements[j], particles[j], map);
       printf("Took %g to do ray-tracing\n", timer_end(t_start));
-      // cv::imshow("Simulation", simulation);
 
+      if (show_ray_tracing) {
+	cv::imshow("Ray-Tracing Simulation (Naive)", simulation_naive);
+  	cv::imshow("Ray-Tracing Simulation (Bresenham)", simulation_bresenham);
+      }
+
+      // Compute likelihood by asking sensor model
       auto likelihoods = compute_likelihood(simulated_measurements, laser->ranges);
 
+      // Only keep particles inside the map
       for (size_t j=0; j<particles.size(); ++j) {
 	if (!map.inside(particles[j]))
 	  likelihoods[j] *= 0;
       }
 
-      /*
+      // Compute the centroid of particles (mean)
       auto centroid = compute_particle_centroid(particles, likelihoods);
       cout << "pose[" << i << "] = " << centroid << endl;
-      // */
 
+      // Low-Variance Resampling
       particles = low_variance_resampling(particles, likelihoods);
     }
     printf("Took %g in total\n", timer_end(t_start_total));
@@ -117,16 +129,82 @@ vector<Particle> ParticleFilter::init_particles() {
   return particles;
 }
 
+// Use C macro ##, which is a token-pasting operator
+#define trace_one_step(x, a) { \
+  if (dec##x >= 0) { \
+    dec##x -= a; \
+    x += s##x; \
+  } \
+  dec##x += a##x; \
+}
+
+// sign of x, return either -1, 0, or 1
+inline int sign(int x) { return (x > 0) ? 1 : ((x < 0) ? -1 : 0); }
+
 /*
    Perform 2-D Bresenham ray-tracing on the map.
  */
 int ParticleFilter::Bresenham_ray_tracing(
-    const int x_start, const int y_start,
-    const int dx, const int dy,
-    const Map& map) {
+    const int x0, const int y0,
+    int dx, int dy, const Map& map, bool debug) {
 
-  // TODO
-  return 0;
+  // x-axis is 0-th axis, y-axis is 1-th axis
+  // If dx > dy, then (principal) axis is 0. Otherwise (principal) axis is 1.
+  int axis = std::abs(dx) < std::abs(dy);
+
+  int sx = sign(dx);
+  int sy = sign(dy);
+
+  if (debug) {
+    printf("\n\n\33[33m-----------------------------------\33[0m\n");
+    printf("(x0, y0) = (%d, %d), (dx, dy) = (%d, %d), axis = %d, (sx, sy) = (%d, %d)\n",
+	x0, y0, dx, dy, axis, sx, sy);
+  }
+
+  dx = std::abs(dx);
+  dy = std::abs(dy);
+
+  int ax = dx << 1;
+  int ay = dy << 1;
+
+  const int L = std::max(dx, dy);
+  int a = L << 1;
+
+  int decx = ax - L;
+  int decy = ay - L;
+
+  if (debug) {
+    printf("(|dx|, |dy|) = (%d, %d), (ax, ay) = (%d, %d), L = %d, a = %d, (decx, decy) = (%d, %d)\n",
+	dx, dy, ax, ay, L, a, decx, decy);
+  }
+
+  // Use unsigned integer so that we don't have to check x < 0 or not
+  size_t x = x0;
+  size_t y = y0;
+
+  constexpr FLOAT eps = 0.8;
+
+  for (int i=0; i<L; ++i) {
+    if (debug)
+      printf("i = %d, (x, y) = (%zu, %zu)\n", i, x, y);
+
+    if (x >= map.max_x || y >= map.max_y)
+      break;
+
+    if (map.prob[x][y] > 1. - eps) {
+
+      if (show_ray_tracing)
+	cv::circle(simulation_bresenham, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), 1);
+
+      float dist = sqrt(pow(float(x) - x0, 2) + pow(float(y) - y0, 2));
+      return dist / map.resolution;
+    }
+
+    if (axis == 0) x += sx; else trace_one_step(x, a);
+    if (axis == 1) y += sy; else trace_one_step(y, a);
+  }
+
+  return Laser::MaxRange - 1;
 }
 
 /*
@@ -151,7 +229,9 @@ int ParticleFilter::naive_ray_tracing(
       break;
 
     if (map.prob[ix][iy] > 1. - eps) {
-      // cv::circle(simulation, cv::Point(ix, iy), 1, cv::Scalar(0, 0, 255), 1);
+      if (show_ray_tracing)
+	cv::circle(simulation_naive, cv::Point(ix, iy), 1, cv::Scalar(0, 0, 255), 1);
+
       return sqrt(pow(x - x0, 2) + pow(y - y0, 2));
     }
   }
@@ -167,14 +247,23 @@ int ParticleFilter::simulate_laser_beam(
     const FLOAT dx, const FLOAT dy,
     const Map& map, RayTracingAlgorithm rta) {
 
+  int dist = 0;
   switch (rta) {
     case RayTracingAlgorithm::Naive:
-      return naive_ray_tracing(x, y, dx, dy, map);
+      dist = naive_ray_tracing(x, y, dx, dy, map);
+      break;
     case RayTracingAlgorithm::Bresenham:
-      // TODO
-      // Don't just pass floating point and downcast it to integer
-      return Bresenham_ray_tracing(x, y, dx, dy, map);
+
+      int x0 = x / map.resolution;
+      int y0 = y / map.resolution;
+      int delta_x = (dx * Laser::MaxRange) / map.resolution;
+      int delta_y = (dy * Laser::MaxRange) / map.resolution;
+
+      // printf("(x0, y0) = (%d, %d), delta = (%d, %d)\n", x0, y0, delta_x, delta_y);
+      dist = Bresenham_ray_tracing(x0, y0, delta_x, delta_y, map);
+      break;
   }
+  return dist;
 }
 
 /*
@@ -195,7 +284,7 @@ void ParticleFilter::simulate_laser_scan(Measurement& m, const Pose& pose, const
     FLOAT dx = std::cos(lidar.theta + float(i) / 180 * PI - PI / 2);
     FLOAT dy = std::sin(lidar.theta + float(i) / 180 * PI - PI / 2);
 
-    m[i] = simulate_laser_beam(x0, y0, dx, dy, map);
+    m[i] = simulate_laser_beam(x0, y0, dx, dy, map, RayTracingAlgorithm::Bresenham);
   }
 }
 
@@ -236,6 +325,7 @@ vector<Particle> ParticleFilter::low_variance_resampling(
   auto sum = std::accumulate(weights.begin(), weights.end(), 0.);
   FLOAT interval = sum / kParticles;
   assert(sum != 0);
+  assert(sum == sum);
 
   std::uniform_real_distribution<> u(0, interval * 0.99);
   FLOAT r = u(gen);
@@ -252,7 +342,13 @@ vector<Particle> ParticleFilter::low_variance_resampling(
     }
 
     int idx = counter;
-    assert(idx >= 0 && idx < particles.size());
+    if (!(idx >= 0 && idx < particles.size())) {
+      printf("\33[31m[Error]\33[0m\n");
+      printf("idx = %d, counter = %d, sum = %f, cumsum = %f, i = %zu, r = %f, interval = %f, weights[%d] = %f\n",
+	  idx, counter, sum, cumsum, i, r, interval, counter, weights[counter]);
+
+      exit(-1);
+    }
     new_particles.push_back(particles[idx]);
   }
 
