@@ -95,8 +95,8 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 void ParticleFilter::init_particles() {
   // Create uniform distribution sampler for x, y, theta
   std::uniform_real_distribution<>
-    /*u_x(map.min_x * map.resolution, map.max_x * map.resolution),
-    u_y(map.min_y * map.resolution, map.max_y * map.resolution),*/
+    /* u_x(map.min_x * map.resolution, map.max_x * map.resolution),
+    u_y(map.min_y * map.resolution, map.max_y * map.resolution), */
     u_x(350 * map.resolution, 450 * map.resolution),
     u_y(420 * map.resolution, 500 * map.resolution),
     u_theta(-PI, PI);
@@ -393,7 +393,7 @@ void ParticleFilter::update_particles_through_motion_model(
   std::normal_distribution<>
     normal_x(0, ParticleFilter::motion_sigma),
     normal_y(0, ParticleFilter::motion_sigma),
-    normal_theta(0, 2*PI / 100);
+    normal_theta(0, 2*PI / 360. / 2.);
 
   for (auto& p : particles) {
     auto c = std::cos(p.theta - p0.theta);
