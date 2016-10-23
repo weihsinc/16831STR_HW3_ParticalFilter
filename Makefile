@@ -1,5 +1,6 @@
 CXX=clang++-3.5
-CXX_FLAGS=-std=c++11 -Wall -Wextra -Werror
+# CXX=g++
+CXX_FLAGS=-std=c++11 # -Wall -Wextra -Werror
 
 SRC=sensor_model.cpp \
     map.cpp \

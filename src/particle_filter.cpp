@@ -17,7 +17,6 @@ ParticleFilter::ParticleFilter(const Map& map, const size_t kParticles):
   map(map), kParticles(kParticles) {
 }
 
-#define PI 3.14159265359
 // constexpr FLOAT PI() { return std::atan(1) * 4; }
 
 /*
@@ -38,9 +37,6 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
       Laser::kBeamPerScan /* each simulation is 180 degree */
     )
   );
-
-  // Pre-allocate all memory needed to store sensor model
-  vector<PDF> models(kParticles, PDF(Laser::MaxRange));
 
   // 2) Perform particle filter algorithm iteratively
   for (size_t i=1; i<sensor_msgs.size(); ++i) {
@@ -138,6 +134,8 @@ vector<Particle> ParticleFilter::init_particles() {
   dec##x += a##x; \
 }
 
+#define square(x) ((x) * (x))
+
 // sign of x, return either -1, 0, or 1
 inline int sign(int x) { return (x > 0) ? 1 : ((x < 0) ? -1 : 0); }
 
@@ -155,11 +153,11 @@ int ParticleFilter::Bresenham_ray_tracing(
   int sx = sign(dx);
   int sy = sign(dy);
 
-  if (debug) {
-    printf("\n\n\33[33m-----------------------------------\33[0m\n");
-    printf("(x0, y0) = (%d, %d), (dx, dy) = (%d, %d), axis = %d, (sx, sy) = (%d, %d)\n",
-	x0, y0, dx, dy, axis, sx, sy);
-  }
+  /*
+  printf("\n\n\33[33m-----------------------------------\33[0m\n");
+  printf("(x0, y0) = (%d, %d), (dx, dy) = (%d, %d), axis = %d, (sx, sy) = (%d, %d)\n",
+      x0, y0, dx, dy, axis, sx, sy);
+  // */
 
   dx = std::abs(dx);
   dy = std::abs(dy);
@@ -173,10 +171,10 @@ int ParticleFilter::Bresenham_ray_tracing(
   int decx = ax - L;
   int decy = ay - L;
 
-  if (debug) {
-    printf("(|dx|, |dy|) = (%d, %d), (ax, ay) = (%d, %d), L = %d, a = %d, (decx, decy) = (%d, %d)\n",
-	dx, dy, ax, ay, L, a, decx, decy);
-  }
+  /*
+  printf("(|dx|, |dy|) = (%d, %d), (ax, ay) = (%d, %d), L = %d, a = %d, (decx, decy) = (%d, %d)\n",
+      dx, dy, ax, ay, L, a, decx, decy);
+  // */
 
   // Use unsigned integer so that we don't have to check x < 0 or not
   size_t x = x0;
@@ -184,27 +182,30 @@ int ParticleFilter::Bresenham_ray_tracing(
 
   constexpr FLOAT threshold = 0.2;
 
+  int dist = Laser::MaxRange - 1;
+
   for (int i=0; i<L; ++i) {
-    if (debug)
-      printf("i = %d, (x, y) = (%zu, %zu)\n", i, x, y);
+    /*
+    printf("i = %d, (x, y) = (%zu, %zu)\n", i, x, y);
+    // */
 
     if (x >= map.max_x || y >= map.max_y)
       break;
 
-    if (map.prob[x][y] > threshold) {
+    if (map.prob[x * map.size_y + y] > threshold) {
 
       if (show_ray_tracing)
 	cv::circle(simulation_bresenham, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), 1);
 
-      float dist = sqrt(pow(float(x) - x0, 2) + pow(float(y) - y0, 2));
-      return dist / map.resolution;
+      dist = (float) sqrt(square(int(x) - x0) + square(int(y) - y0)) / map.resolution;
+      break;
     }
 
     if (axis == 0) x += sx; else trace_one_step(x, a);
     if (axis == 1) y += sy; else trace_one_step(y, a);
   }
 
-  return Laser::MaxRange - 1;
+  return dist;
 }
 
 /*
@@ -228,7 +229,7 @@ int ParticleFilter::naive_ray_tracing(
     if (ix >= map.max_x || iy >= map.max_y)
       break;
 
-    if (map.prob[ix][iy] > threshold) {
+    if (map.prob[ix * map.size_y + iy] > threshold) {
       if (show_ray_tracing)
 	cv::circle(simulation_naive, cv::Point(ix, iy), 1, cv::Scalar(0, 0, 255), 1);
 

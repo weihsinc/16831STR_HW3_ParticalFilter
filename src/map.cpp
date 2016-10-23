@@ -12,16 +12,20 @@ Map::Map(const string& mapName) {
   for (size_t i=0; i<size_x; ++i) {
     for (size_t j=0; j<size_y; ++j) {
       for (size_t k=0; k<3; ++k)
-	cv_img.data[j*cv_img.step + i * 3 + k] = (1. - this->prob[i][j]) * 255;
+	cv_img.data[j*cv_img.step + i * 3 + k] = (1. - this->prob[i * size_y + j]) * 255;
     }
   }
+}
+
+Map::~Map() {
+  delete [] prob;
 }
 
 bool Map::inside(const Pose& p) const {
   size_t ix = p.x / resolution;
   size_t iy = p.y / resolution;
 
-  return ix < size_x && iy < size_y && prob[ix][iy] == 0;
+  return ix < size_x && iy < size_y && prob[ix * size_y + iy] == 0;
 }
 
 void Map::read_map_from_file(const string& mapName) {
@@ -63,9 +67,7 @@ void Map::read_map_from_file(const string& mapName) {
   int count = 0;
   float temp;
 
-  this->prob.resize(this->size_x);
-  for (size_t x = 0; x < this->size_x; x++)
-    this->prob[x].resize(this->size_y);
+  this->prob = new float[this->size_x * this->size_y];
 
   for (size_t x = 0; x < this->size_x; x++)
     for (size_t y = 0; y < this->size_y; y++, count++) {
@@ -75,7 +77,7 @@ void Map::read_map_from_file(const string& mapName) {
 
       fscanf(fp,"%e", &temp);
       if(temp < 0.0)
-	this->prob[x][y] = -1;
+	this->prob[x * size_y + y] = -1;
       else {
 	if(x < this->min_x)
 	  this->min_x = x;
@@ -85,7 +87,7 @@ void Map::read_map_from_file(const string& mapName) {
 	  this->min_y = y;
 	else if(y > this->max_y)
 	  this->max_y = y;
-	this->prob[x][y] = 1 - temp;	   
+	this->prob[x * size_y + y] = 1 - temp;
       }
     }
 
