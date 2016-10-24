@@ -23,7 +23,7 @@ ParticleFilter::ParticleFilter(
     const size_t nThreads):
   map(map), kParticles(kParticles), threads(nThreads),
   particles(kParticles), particle_mask(kParticles), flag(false),
-  pose_gnd(400 * map.resolution, 428 * map.resolution, PI/5+PI/2),
+  pose_gnd(400 * map.resolution, 428 * map.resolution, -PI/2-PI/10),
   motion_model(motion_model),
   simulated_measurements(kParticles, Measurement(Laser::kBeamPerScan)) {
     init_particles();
@@ -44,7 +44,7 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
     auto t_start_total = timer_start();
 
     img = cv_img.clone();
-    simulation_naive = cv_img.clone();
+    // simulation_naive = cv_img.clone();
     simulation_bresenham = cv_img.clone();
 
     auto p0 = sensor_msgs[i-1]->pose;
@@ -52,6 +52,10 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
     auto dt = sensor_msgs[i]->timestamp - sensor_msgs[i-1]->timestamp;
 
     update_one_particle_through_motion_model(pose_gnd, p0, p1, dt, true);
+    Measurement m(Laser::kBeamPerScan);
+    flag = true;
+    simulate_laser_scan(m, pose_gnd);
+    flag = false;
 
     update_particles_through_motion_model(p0, p1, dt);
 
@@ -64,7 +68,7 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
       simulate_laser_scan_all_particles();
 
       if (show_ray_tracing) {
-	cv::imshow("Ray-Tracing Simulation (Naive)", simulation_naive);
+	// cv::imshow("Ray-Tracing Simulation (Naive)", simulation_naive);
   	cv::imshow("Ray-Tracing Simulation (Bresenham)", simulation_bresenham);
       }
 
@@ -72,9 +76,8 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
       auto likelihoods = compute_likelihood(laser->ranges);
 
       /*
-      for (size_t j=0; j<particles.size(); ++j) {
+      for (size_t j=0; j<particles.size(); ++j)
         likelihoods[j] = std::max(0.01f, likelihoods[j]);
-      }
       // */
 
       // Only keep particles inside the map
@@ -83,30 +86,16 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 	  likelihoods[j] *= 0;
       }
 
-      // Compute the centroid of particles (mean)
       /*
+      // Compute the centroid of particles (mean)
       auto centroid = compute_particle_centroid(likelihoods);
       cout << "pose[" << i << "] = " << centroid << endl;
-      */
-
-      /*
-      flag = true;
-      for (size_t j=0; j<particles.size(); ++j) {
-        if (particle_mask[j]) {
-          printf("jjjjj = %zu\n", j);
-          cout << simulated_measurements[j] << endl;
-          simulate_laser_scan_some_particles(j, j+1);
-          cv::imshow("Display window", img);
-          cv::waitKey(0);
-        }
-      }
-      flag = false;
-      */
+      // */
 
       show_particles_on_map(likelihoods);
 
       // Low-Variance Resampling
-      particles = low_variance_resampling(likelihoods);
+      // particles = low_variance_resampling(likelihoods);
 
       printf("Took \33[33m%g\33[0m in total\n\n", timer_end(t_start_total));
     }
@@ -131,7 +120,8 @@ void ParticleFilter::init_particles() {
     u_theta(-PI, PI);*/
     u_x(350 * map.resolution, 450 * map.resolution),
     u_y(400 * map.resolution, 500 * map.resolution),
-    u_theta(PI/5+PI/2, PI/5+PI/2);
+    u_theta(PI/2-PI/10, PI/2-PI/10);
+    /*u_theta(PI/5+PI/2, PI/5+PI/2);*/
 
   size_t i=0;
   while (i < kParticles) {
@@ -173,6 +163,7 @@ int ParticleFilter::Bresenham_ray_tracing(
   int sx = sign(dx);
   int sy = sign(dy);
 
+  /*
   if (flag) {
   printf("\n\n\33[33m-----------------------------------\33[0m\n");
   printf("(x0, y0) = (%d, %d), (dx, dy) = (%d, %d), axis = %d, (sx, sy) = (%d, %d)\n",
@@ -194,8 +185,10 @@ int ParticleFilter::Bresenham_ray_tracing(
 
   if (flag) {
     cv::circle(img, cv::Point(x0, y0), 0, cv::Scalar(0, 0, 255), 5);
+    /*
     printf("(|dx|, |dy|) = (%d, %d), (ax, ay) = (%d, %d), L = %d, a = %d, (decx, decy) = (%d, %d)\n",
       dx, dy, ax, ay, L, a, decx, decy);
+      */
   }
   // */
 
@@ -211,7 +204,7 @@ int ParticleFilter::Bresenham_ray_tracing(
 
     if (flag) {
       cv::circle(img, cv::Point(x, y), 0, cv::Scalar(255, 125, 0), 1);
-      printf("i = %d, (x, y) = (%zu, %zu)\n", i, x, y);
+      // printf("i = %d, (x, y) = (%zu, %zu)\n", i, x, y);
     }
     // */
 
@@ -523,7 +516,7 @@ void ParticleFilter::show_particles_on_map(const std::vector<FLOAT>& likelihoods
     
     // cout << likelihoods[j] << endl;    
     int darkness = 255 * (1 - likelihoods[j]);
-    cv::circle(img, cv::Point(ix, iy), 1, cv::Scalar(0, darkness, 255), 2 + likelihoods[j]);
+    // cv::circle(img, cv::Point(ix, iy), 1, cv::Scalar(0, darkness, 255), 2 + likelihoods[j]);
   }
 
   // Plot RED (sum == 0) particles
@@ -541,7 +534,7 @@ void ParticleFilter::show_particles_on_map(const std::vector<FLOAT>& likelihoods
     // printf("ix = %zu, iy = %zu\n", ix, iy);
     // int darkness = 255 * (1 - likelihoods[i]);
     // cv::circle(img, cv::Point(ix, iy), 0, cv::Scalar(0, darkness, 255), 2 + likelihoods[i]);
-    cv::circle(img, cv::Point(ix, iy), 0, GREEN, 2);
+    // cv::circle(img, cv::Point(ix, iy), 0, GREEN, 2);
   }
 
   cv::circle(cv_img, map.to_idx(pose_gnd), 0, cv::Scalar(128, 0, 255), 1);

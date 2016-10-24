@@ -70,6 +70,7 @@ int main(int argc, char* argv[]) {
 
   // Print all configurations
   clog
+    << "Using OpenCV        : " << CV_VERSION << endl
     << "# Beams per scan    : " << Laser::kBeamPerScan << endl
     << "Laser Max Range     : " << Laser::MaxRange << endl
     << "motion sigma xy     : " << sigma_xy << endl

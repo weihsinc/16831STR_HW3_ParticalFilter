@@ -3,7 +3,7 @@ using namespace std;
 
 /* Implementation of class SensorMsg */
 SensorMsg::SensorMsg(const vector<string> &tokens):
-  pose(stof(tokens[1]), -stof(tokens[2]), stof(tokens[3])),
+  pose(stof(tokens[1]), stof(tokens[2]), stof(tokens[3])),
   timestamp(stof(tokens.back())) {
 }
 
@@ -27,12 +27,12 @@ size_t Laser::MaxRange;
 
 Laser::Laser(const vector<string> &tokens) :
   SensorMsg(tokens),
-  pose_l(stof(tokens[1]), -stof(tokens[2]), stof(tokens[3])),
+  pose_l(stof(tokens[1]), stof(tokens[2]), stof(tokens[3])),
   ranges(kBeamPerScan) {
 
   for (size_t i=0; i<kBeamPerScan; ++i)
     this->ranges[i] = stoi(tokens[7+i]);
-}
+  }
 
 ostream& Laser::print(ostream& os) const {
   os << "L "
