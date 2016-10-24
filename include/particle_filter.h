@@ -104,9 +104,10 @@ private:
   /*
      Show particles on map
    */
-  void show_particles_on_map() const;
+  void show_particles_on_map(const std::vector<FLOAT>& likelihoods);
 
   // Data Member
+  cv::Mat img;
   cv::Mat simulation_naive;
   cv::Mat simulation_bresenham;
 
@@ -118,6 +119,8 @@ private:
 
   std::vector<std::thread> threads;
   std::vector<bool> particle_mask;
+
+  bool flag;
 };
 
 
