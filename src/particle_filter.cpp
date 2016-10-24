@@ -18,7 +18,7 @@ ParticleFilter::ParticleFilter(
     const size_t kParticles,
     const size_t nThreads):
   map(map), kParticles(kParticles), threads(nThreads),
-  particles(kParticles),
+  particles(kParticles), particle_mask(kParticles),
   simulated_measurements(kParticles, Measurement(Laser::kBeamPerScan)) {
     init_particles();
 }
@@ -33,8 +33,6 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 
   // 1) Perform particle filter algorithm iteratively
   for (size_t i=1; i<sensor_msgs.size(); ++i) {
-
-    show_particles_on_map();
 
     auto t_start_total = timer_start();
 
@@ -56,6 +54,8 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
       }
 
       simulate_laser_scan_all_particles();
+
+      show_particles_on_map();
 
       if (show_ray_tracing) {
 	cv::imshow("Ray-Tracing Simulation (Naive)", simulation_naive);
@@ -272,7 +272,12 @@ void ParticleFilter::simulate_laser_scan_all_particles() {
   for (auto& t : threads)
     t.join();
 
-  // this->simulate_laser_scan_some_particles(0, kParticles);
+  for (size_t i=0; i<kParticles; ++i) {
+    float sum = 0;
+    for (size_t j=0; j<Laser::kBeamPerScan; ++j)
+      sum += simulated_measurements[i][j];
+    particle_mask[i] = (sum == 0);
+  }
 
   printf("Took %g to do ray-tracing\n", timer_end(t_start));
 }
@@ -427,8 +432,13 @@ Particle ParticleFilter::compute_particle_centroid(
    Show particles on map
  */
 void ParticleFilter::show_particles_on_map() const {
+
   cv::Mat img = map.cv_img.clone();
 
+  const cv::Scalar RED(0, 0, 255);
+  const cv::Scalar GREEN(0, 255, 0);
+
+  // Plot GREEN (sum != 0) particles
   for (size_t i=0; i<particles.size(); ++i) {
 
     size_t ix = particles[i].x / map.resolution;
@@ -437,8 +447,25 @@ void ParticleFilter::show_particles_on_map() const {
     if (ix >= map.max_x || iy >= map.max_y)
       continue;
 
-    cv::circle(img, cv::Point(ix, iy), 1, cv::Scalar(0, 0, 255), 1);
-    // printf("ix = %zu, iy = %zu\n", ix, iy);
+    if (particle_mask[i])
+      continue;
+
+    cv::circle(img, cv::Point(ix, iy), 0, GREEN, 1);
+  }
+
+  // Plot RED (sum == 0) particles
+  for (size_t i=0; i<particles.size(); ++i) {
+
+    size_t ix = particles[i].x / map.resolution;
+    size_t iy = particles[i].y / map.resolution;
+
+    if (ix >= map.max_x || iy >= map.max_y)
+      continue;
+
+    if (!particle_mask[i])
+      continue;
+
+    cv::circle(img, cv::Point(ix, iy), 0, RED, 1);
   }
 
   cv::imshow("Display window", img);

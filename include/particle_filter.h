@@ -117,6 +117,7 @@ private:
   std::vector<Measurement> simulated_measurements;
 
   std::vector<std::thread> threads;
+  std::vector<bool> particle_mask;
 };
 
 
