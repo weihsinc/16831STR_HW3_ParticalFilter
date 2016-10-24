@@ -290,14 +290,14 @@ void ParticleFilter::simulate_laser_scan_some_particles(
 void ParticleFilter::simulate_laser_scan(Measurement& m, const Pose& pose) {
 
   // Transformation from robot pose to lidar pose
-  const Pose R2L(5.66628200000001, -24.349396000000013, 0);
+  const Pose R2L(25.0*cos(pose.theta), 25.0*sin(pose.theta), 0);
+
+  Pose lidar = pose + R2L;
+
+  FLOAT x0 = lidar.x;
+  FLOAT y0 = lidar.y;
 
   for (size_t i=0; i<m.size(); ++i) {
-    Pose lidar = pose + R2L;
-
-    FLOAT x0 = lidar.x;
-    FLOAT y0 = lidar.y;
-
     // minus 90 degree because the first beam start from the right
     FLOAT dx = std::cos(lidar.theta + float(i) / 180 * PI - PI / 2);
     FLOAT dy = std::sin(lidar.theta + float(i) / 180 * PI - PI / 2);
