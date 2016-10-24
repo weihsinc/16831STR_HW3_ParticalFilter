@@ -135,6 +135,7 @@ private:
   std::vector<bool> particle_mask;
 
   bool flag;
+  float theta;
   Pose pose_gnd;
 
   MotionModel motion_model;
