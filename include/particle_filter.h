@@ -11,13 +11,19 @@
 typedef std::vector<FLOAT> PDF;
 typedef Pose Particle;
 
+class MotionModel {
+public:
+  MotionModel(float sigma_x, float sigma_y, float sigma_theta):
+    x(0, sigma_x), y(0, sigma_y), theta(0, sigma_theta) {}
+  std::normal_distribution<> x, y, theta;
+
+  Pose sample();
+};
+
 class ParticleFilter {
 public:
   static FLOAT motion_sigma;
   static bool show_ray_tracing;
-
-  static std::random_device rd;
-  static std::mt19937 gen;
 
   enum RayTracingAlgorithm {
     Naive,
@@ -30,6 +36,7 @@ public:
   ParticleFilter(
       const Map& map,
       const size_t kParticles,
+      const MotionModel& motion_model,
       const size_t nThreads = 8);
 
   /*
@@ -95,6 +102,12 @@ private:
    */
   void update_particles_through_motion_model(
     const Pose& p0, const Pose& p1);
+
+  /*
+     Update one particle through motion model assuming it's Gaussian distribution
+   */
+  void update_one_particle_through_motion_model(
+    Particle& p, const Pose& p0, const Pose& p1, bool deterministic = false);
   
   /*
      Compute particle centroid (weighted sum)
@@ -107,6 +120,7 @@ private:
   void show_particles_on_map(const std::vector<FLOAT>& likelihoods);
 
   // Data Member
+  cv::Mat cv_img;
   cv::Mat img;
   cv::Mat simulation_naive;
   cv::Mat simulation_bresenham;
@@ -121,6 +135,9 @@ private:
   std::vector<bool> particle_mask;
 
   bool flag;
+  Pose pose_gnd;
+
+  MotionModel motion_model;
 };
 
 

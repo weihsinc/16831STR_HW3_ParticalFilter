@@ -7,20 +7,27 @@
 #include <particle_filter.h>
 using namespace std;
 
-FLOAT ParticleFilter::motion_sigma;
 bool ParticleFilter::show_ray_tracing;
 
-std::random_device ParticleFilter::rd;
-std::mt19937 ParticleFilter::gen(rd());
+static std::random_device rd;
+static std::mt19937 gen(rd());
+
+Pose MotionModel::sample() {
+  return Pose(x(gen), y(gen), theta(gen));
+}
 
 ParticleFilter::ParticleFilter(
     const Map& map,
     const size_t kParticles,
+    const MotionModel& motion_model,
     const size_t nThreads):
   map(map), kParticles(kParticles), threads(nThreads),
   particles(kParticles), particle_mask(kParticles), flag(false),
+  pose_gnd(400 * map.resolution, 428 * map.resolution, PI/5+PI/2),
+  motion_model(motion_model),
   simulated_measurements(kParticles, Measurement(Laser::kBeamPerScan)) {
     init_particles();
+    cv_img = map.cv_img.clone();
 }
 
 /*
@@ -36,10 +43,16 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 
     auto t_start_total = timer_start();
 
-    img = map.cv_img.clone();
+    img = cv_img.clone();
+    simulation_naive = cv_img.clone();
+    simulation_bresenham = cv_img.clone();
 
     auto p0 = sensor_msgs[i-1]->pose;
     auto p1 = sensor_msgs[i]->pose;
+
+    update_one_particle_through_motion_model(pose_gnd, p0, p1, true);
+    cv::circle(cv_img, map.to_idx(pose_gnd), 0, cv::Scalar(128, 0, 255), 1);
+    cv::circle(img, map.to_idx(pose_gnd), 2, cv::Scalar(128, 0, 255), 3);
 
     update_particles_through_motion_model(p0, p1);
 
@@ -49,14 +62,7 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
     else {
       Laser* laser = dynamic_cast<Laser*>(sensor_msgs[i]);
 
-      // Ray tracing
-      if (show_ray_tracing) {
-	simulation_naive = map.cv_img.clone();
-	simulation_bresenham = map.cv_img.clone();
-      }
-
       simulate_laser_scan_all_particles();
-      // show_particles_on_map();
 
       if (show_ray_tracing) {
 	cv::imshow("Ray-Tracing Simulation (Naive)", simulation_naive);
@@ -66,10 +72,11 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
       // Compute likelihood by asking sensor model
       auto likelihoods = compute_likelihood(laser->ranges);
 
-      // Only keep particles inside the map
-      // for (size_t j=0; j<particles.size(); ++j) {
-      //   likelihoods[j] = std::max(0.01f, likelihoods[j]);
-      // }
+      /*
+      for (size_t j=0; j<particles.size(); ++j) {
+        likelihoods[j] = std::max(0.01f, likelihoods[j]);
+      }
+      // */
 
       // Only keep particles inside the map
       for (size_t j=0; j<particles.size(); ++j) {
@@ -368,19 +375,20 @@ vector<float> ParticleFilter::compute_likelihood(
   for (size_t i=0; i<kParticles; ++i) {
     for (size_t j=0; j<Laser::kBeamPerScan; ++j) {
       auto l = SensorModel::eval(simulated_measurements[i][j], measurement[j]);
-      // likelihoods[i] += std::log(l);
-      likelihoods[i] += l;
+      likelihoods[i] += std::log(l);
+      // likelihoods[i] += l;
     }
   }
 
+  /*
   auto max_e = *std::max_element(likelihoods.begin(), likelihoods.end());
   auto min_e = *std::min_element(likelihoods.begin(), likelihoods.end());
   
   for (size_t i=0; i<kParticles; ++i) {
     likelihoods[i] = (likelihoods[i] - min_e) / (max_e - min_e);
   }
+  // */
 
-  /*
   auto max_log = *std::max_element(likelihoods.begin(), likelihoods.end());
   for (size_t i=0; i<likelihoods.size(); ++i)
     likelihoods[i] = std::exp(likelihoods[i] - max_log);
@@ -446,23 +454,26 @@ void ParticleFilter::update_particles_through_motion_model(
 
   auto t_start = timer_start();
 
-  auto delta = p1 - p0;
-
-  std::normal_distribution<>
-    normal_x(0, ParticleFilter::motion_sigma),
-    normal_y(0, ParticleFilter::motion_sigma),
-    normal_theta(0, 2*PI / 360. / 5.);
-
-  for (auto& p : particles) {
-    auto c = std::cos(p.theta - p0.theta);
-    auto s = std::sin(p.theta - p0.theta);
-
-    p.x += (c * delta.x - s * delta.y) + normal_x(gen);
-    p.y += (s * delta.x + c * delta.y) + normal_y(gen);
-    p.theta += delta.theta + normal_theta(gen);
-  }
+  for (auto& p : particles)
+    update_one_particle_through_motion_model(p, p0, p1);
 
   printf("Took %g to update particle through motion model\n", timer_end(t_start));
+}
+
+void ParticleFilter::update_one_particle_through_motion_model(
+    Particle& p, const Pose& p0, const Pose& p1, bool deterministic) {
+
+  auto delta = p1 - p0;
+
+  auto c = std::cos(p.theta - p0.theta);
+  auto s = std::sin(p.theta - p0.theta);
+
+  p.x += (c * delta.x - s * delta.y);
+  p.y += (s * delta.x + c * delta.y);
+  p.theta += delta.theta;
+
+  if (!deterministic)
+    p += motion_model.sample();
 }
 
 /*
@@ -531,7 +542,7 @@ void ParticleFilter::show_particles_on_map(const std::vector<FLOAT>& likelihoods
     // printf("ix = %zu, iy = %zu\n", ix, iy);
     // int darkness = 255 * (1 - likelihoods[i]);
     // cv::circle(img, cv::Point(ix, iy), 0, cv::Scalar(0, darkness, 255), 2 + likelihoods[i]);
-    cv::circle(img, cv::Point(ix, iy), 0, RED, 2);
+    cv::circle(img, cv::Point(ix, iy), 0, GREEN, 2);
   }
 
   cv::imshow("Display window", img);

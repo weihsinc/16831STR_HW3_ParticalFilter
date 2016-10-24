@@ -15,6 +15,9 @@ public:
   ~Map();
 
   bool inside(const Pose& p) const;
+
+  cv::Point to_idx(const Pose& p) const;
+
   void read_map_from_file(const std::string& mapName);
 
 /*

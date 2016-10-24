@@ -28,6 +28,10 @@ bool Map::inside(const Pose& p) const {
   return ix < size_x && iy < size_y && prob[ix * size_y + iy] == 0;
 }
 
+cv::Point Map::to_idx(const Pose& p) const {
+  return {(int) (p.x / resolution), (int) (p.y / resolution)};
+}
+
 void Map::read_map_from_file(const string& mapName) {
   char line[256];
   FILE *fp;

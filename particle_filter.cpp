@@ -22,7 +22,8 @@ int main(int argc, char* argv[]) {
     .add("-n", "number of particles", "1000");
 
   cmd.addGroup("Motion Model options:")
-    .add("--motion-sigma", "standard deviation of Gaussian Motion model", "5");
+    .add("--motion-sigma-xy", "standard deviation of xy in Gaussian Motion model", "5")
+    .add("--motion-sigma-theta", "standard deviation of theta in Gaussian Motion model", "0.003490658503988659");
 
   cmd.addGroup("Sensor Model options:")
     .add("--max-range", "max range of the laser sensor")
@@ -43,31 +44,17 @@ int main(int argc, char* argv[]) {
   Laser::MaxRange = cmd["--max-range"];
   int kParticles = cmd["-n"];
 
-  ParticleFilter::motion_sigma = cmd["--motion-sigma"];
   ParticleFilter::show_ray_tracing = cmd["--show-ray-tracing"];
 
   SensorModel::weights = splitAsFloat(cmd["--weights"], ',');
   SensorModel::sigma = cmd["--sigma"];
   SensorModel::exp_decay = cmd["--exp-decay"];
 
-  clog
-    << "# Beams per scan    : " << Laser::kBeamPerScan << endl
-    << "Laser Max Range     : " << Laser::MaxRange << endl
-    << "motion sigma        : " << ParticleFilter::motion_sigma << endl
-    << "sensor model weights: " << SensorModel::weights
-    << "standard deviation  : " << SensorModel::sigma << endl
-    << "exponential decay   : " << SensorModel::exp_decay << endl;
-
   // Load map
   Map map(map_fn);
-  clog << map << endl;
 
   // Load data log
   vector<SensorMsg*> sensor_msgs = parse_robot_data(robot_data);
-  /*
-  for (auto& sensor_msg : sensor_msgs)
-    cout << *sensor_msg << endl;
-    */
 
   // basic OpenCV example for later debugging
   cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE);
@@ -76,8 +63,25 @@ int main(int argc, char* argv[]) {
     cv::namedWindow("Ray-Tracing Simulation (Bresenham)", cv::WINDOW_AUTOSIZE);
   }
 
+  // Initialie motion model
+  float sigma_xy = cmd["--motion-sigma-xy"];
+  float sigma_theta = cmd["--motion-sigma-theta"];
+  MotionModel motion_model(sigma_xy, sigma_xy, sigma_theta);
+
+  // Print all configurations
+  clog
+    << "# Beams per scan    : " << Laser::kBeamPerScan << endl
+    << "Laser Max Range     : " << Laser::MaxRange << endl
+    << "motion sigma xy     : " << sigma_xy << endl
+    << "motion sigma theta  : " << sigma_theta << endl
+    << "sensor model weights: " << SensorModel::weights
+    << "standard deviation  : " << SensorModel::sigma << endl
+    << "exponential decay   : " << SensorModel::exp_decay << endl;
+
+  clog << map << endl;
+
   // Initialie particle filter
-  ParticleFilter particle_filter(map, kParticles);
+  ParticleFilter particle_filter(map, kParticles, motion_model);
 
   // Use particle_filter to filter out the pose of robot
   auto poses = particle_filter(sensor_msgs);
