@@ -185,7 +185,7 @@ int ParticleFilter::Bresenham_ray_tracing(
       if (show_ray_tracing)
 	cv::circle(simulation_bresenham, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), 1);
 
-      dist = (float) sqrt(square(int(x) - x0) + square(int(y) - y0)) / map.resolution;
+      dist = (float) sqrt(square(int(x) - x0) + square(int(y) - y0)) * map.resolution;
       break;
     }
 
@@ -261,7 +261,7 @@ void ParticleFilter::simulate_laser_scan_all_particles() {
   size_t kParticlesPerThread = kParticles / threads.size();
 
   for (size_t i=0; i<threads.size(); ++i) {
-    size_t i_begin = i*kParticles;
+    size_t i_begin = i*kParticlesPerThread;
     size_t i_end = std::min((i+1) * kParticlesPerThread, kParticles);
 
     threads[i] = std::thread([this, i_begin, i_end] {
