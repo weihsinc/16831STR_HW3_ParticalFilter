@@ -7,5 +7,5 @@ bin/particle_filter data/log/robotdata1.log \
 --weights 1,0.8,100,0.5 \
 --exp-decay 1e-4 \
 --sigma 200 \
---motion-sigma-xy 15 \
+--motion-sigma-xy 10 \
 -n 5000 # --show-ray-tracing true

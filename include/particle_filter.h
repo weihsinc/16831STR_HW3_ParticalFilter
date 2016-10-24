@@ -101,13 +101,13 @@ private:
      Update particles through motion model assuming it's Gaussian distribution
    */
   void update_particles_through_motion_model(
-    const Pose& p0, const Pose& p1);
+    const Pose& p0, const Pose& p1, TIME_T dt);
 
   /*
      Update one particle through motion model assuming it's Gaussian distribution
    */
   void update_one_particle_through_motion_model(
-    Particle& p, const Pose& p0, const Pose& p1, bool deterministic = false);
+    Particle& p, const Pose& p0, const Pose& p1, TIME_T dt, bool deterministic = false);
   
   /*
      Compute particle centroid (weighted sum)

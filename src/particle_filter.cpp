@@ -49,12 +49,11 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 
     auto p0 = sensor_msgs[i-1]->pose;
     auto p1 = sensor_msgs[i]->pose;
+    auto dt = sensor_msgs[i]->timestamp - sensor_msgs[i-1]->timestamp;
 
-    update_one_particle_through_motion_model(pose_gnd, p0, p1, true);
-    cv::circle(cv_img, map.to_idx(pose_gnd), 0, cv::Scalar(128, 0, 255), 1);
-    cv::circle(img, map.to_idx(pose_gnd), 2, cv::Scalar(128, 0, 255), 3);
+    update_one_particle_through_motion_model(pose_gnd, p0, p1, dt, true);
 
-    update_particles_through_motion_model(p0, p1);
+    update_particles_through_motion_model(p0, p1, dt);
 
     if (sensor_msgs[i]->type() == SensorMsg::Odometry) {
       // Do nothing
@@ -450,18 +449,18 @@ vector<Particle> ParticleFilter::low_variance_resampling(
    <Motion Model>
  */
 void ParticleFilter::update_particles_through_motion_model(
-    const Pose& p0, const Pose& p1) {
+    const Pose& p0, const Pose& p1, TIME_T dt) {
 
   auto t_start = timer_start();
 
   for (auto& p : particles)
-    update_one_particle_through_motion_model(p, p0, p1);
+    update_one_particle_through_motion_model(p, p0, p1, dt);
 
   printf("Took %g to update particle through motion model\n", timer_end(t_start));
 }
 
 void ParticleFilter::update_one_particle_through_motion_model(
-    Particle& p, const Pose& p0, const Pose& p1, bool deterministic) {
+    Particle& p, const Pose& p0, const Pose& p1, TIME_T dt, bool deterministic) {
 
   auto delta = p1 - p0;
 
@@ -473,7 +472,7 @@ void ParticleFilter::update_one_particle_through_motion_model(
   p.theta += delta.theta;
 
   if (!deterministic)
-    p += motion_model.sample();
+    p += motion_model.sample() * std::sqrt(dt);
 }
 
 /*
@@ -524,7 +523,7 @@ void ParticleFilter::show_particles_on_map(const std::vector<FLOAT>& likelihoods
     
     // cout << likelihoods[j] << endl;    
     int darkness = 255 * (1 - likelihoods[j]);
-    cv::circle(img, cv::Point(ix, iy), 0, cv::Scalar(0, darkness, 255), 2 + likelihoods[j]);
+    cv::circle(img, cv::Point(ix, iy), 1, cv::Scalar(0, darkness, 255), 2 + likelihoods[j]);
   }
 
   // Plot RED (sum == 0) particles
@@ -544,6 +543,10 @@ void ParticleFilter::show_particles_on_map(const std::vector<FLOAT>& likelihoods
     // cv::circle(img, cv::Point(ix, iy), 0, cv::Scalar(0, darkness, 255), 2 + likelihoods[i]);
     cv::circle(img, cv::Point(ix, iy), 0, GREEN, 2);
   }
+
+  cv::circle(cv_img, map.to_idx(pose_gnd), 0, cv::Scalar(128, 0, 255), 1);
+  cv::circle(img, map.to_idx(pose_gnd), 0, cv::Scalar(255, 0, 0), 1);
+  cv::circle(img, map.to_idx(pose_gnd), 15, cv::Scalar(255, 0, 0), 2);
 
   cv::imshow("Display window", img);
   cv::waitKey(10);
