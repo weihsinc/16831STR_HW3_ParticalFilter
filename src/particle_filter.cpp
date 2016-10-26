@@ -37,6 +37,7 @@ ParticleFilter::ParticleFilter(
 vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) {
 
   vector<Pose> poses;
+  vector<FLOAT> likelihoods(kParticles, 0);
 
   // 1) Perform particle filter algorithm iteratively
   for (size_t i=1; i<sensor_msgs.size(); ++i) {
@@ -69,50 +70,87 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 
       simulate_laser_scan_all_particles();
 
-      if (show_ray_tracing) {
-	// cv::imshow("Ray-Tracing Simulation (Naive)", simulation_naive);
-  	cv::imshow("Ray-Tracing Simulation (Bresenham)", simulation_bresenham);
-      }
+      // if (show_ray_tracing) {
+      //   // cv::imshow("Ray-Tracing Simulation (Naive)", simulation_naive);
+      //   cv::imshow("Ray-Tracing Simulation (Bresenham)", simulation_bresenham);
+      // }
 
       // Compute likelihood by asking sensor model
-      auto likelihoods = compute_likelihood(laser->ranges);
-
+      likelihoods += compute_likelihood(laser->ranges);
+      // auto likelihoods = compute_likelihood(laser->ranges);
       /*
       for (size_t j=0; j<particles.size(); ++j)
         likelihoods[j] = std::max(0.01f, likelihoods[j]);
       // */
 
-      // Only keep particles inside the map
-      for (size_t j=0; j<particles.size(); ++j) {
-	if (!map.inside(particles[j]))
-	  likelihoods[j] *= 0;
-      }
-
-      /*
-      // Compute the centroid of particles (mean)
-      auto centroid = compute_particle_centroid(likelihoods);
-      cout << "pose[" << i << "] = " << centroid << endl;
-      // */
-
       show_particles_on_map(likelihoods);
 
-      for (size_t j=0; j<laser->ranges.size(); ++j) {
-	auto& r = laser->ranges[j];
-	int x = (r * std::cos(pose_gnd.theta + float(j) / 180 * PI - PI / 2) + pose_gnd.x) / map.resolution;
-	int y = (r * std::sin(pose_gnd.theta + float(j) / 180 * PI - PI / 2) + pose_gnd.y) / map.resolution;
-	cv::circle(img,
-	    cv::Point(x, y),
-	    0, cv::Scalar(0, 0, float(255) * j / 180), 1);
+      // Only keep particles inside the map
+      for (size_t j=0; j<particles.size(); ++j) {
+        if (!map.inside(particles[j]))
+          likelihoods[j] *= 0;
       }
 
-      // Low-Variance Resampling
-      if (i > 100)
-	particles = low_variance_resampling(likelihoods);
+      // if (true){
+      if (i%10 == 0){
 
-      printf("Took \33[33m%g\33[0m in total\n\n", timer_end(t_start_total));
+        // show_particles_on_map(likelihoods);
+
+        // re-intialize testing ========================================================
+        std::vector<size_t> indices(kParticles);
+        for (size_t i=0; i<kParticles; ++i)
+          indices[i] = i;
+
+        sort(indices.begin(), indices.end(), 
+          [&likelihoods] (const size_t &i, const size_t& j) -> bool {
+            return likelihoods[i] < likelihoods[j];
+        });
+
+        FLOAT top_likelihood = 0.0; 
+        int num = kParticles/100;
+        for (size_t i=0; i<num; ++i)
+          top_likelihood += likelihoods[indices[i]];
+        top_likelihood /= num;
+        debug(top_likelihood*1000000000);
+
+        FLOAT sum = 0;
+        for (auto& w : likelihoods)
+          sum += w;
+
+        if (sum == 0){
+          printf("  \33[33m re-intialize particle \33[0m \n");
+          init_particles();
+        }
+        else{
+          // if (i > 100)
+          particles = low_variance_resampling(likelihoods);
+          
+        }
+
+        if (top_likelihood*1000000000 < 1e-15){
+          printf("  \33[33m re-intialize particle \33[0m \n");
+          // init_particles();
+        }
+
+          
+
+
+        // re-intialize testing ========================================================
+
+        // Low-Variance Resampling
+        
+          
+
+          // reset likelihoods
+          likelihoods = vector<FLOAT>(kParticles, 0);
+        }
+      // printf("Took \33[33m%g\33[0m in total\n\n", timer_end(t_start_total));
     }
 
-    cv::waitKey(5);
+    if (i == sensor_msgs.size()-1)
+        cv::waitKey(0);
+    else
+        cv::waitKey(5);
   }
 
   return poses;
@@ -124,25 +162,26 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 void ParticleFilter::init_particles() {
   // Create uniform distribution sampler for x, y, theta
   std::uniform_real_distribution<>
-    /*u_x(map.min_x * map.resolution, map.max_x * map.resolution),
-    u_y(map.min_y * map.resolution, map.max_y * map.resolution),
-    u_theta(-PI, PI);*/
+    // u_x(map.min_x * map.resolution, map.max_x * map.resolution),
+    // u_y(map.min_y * map.resolution, map.max_y * map.resolution),
+    // u_theta(-PI, PI);
     /*u_x(654 * map.resolution, 654 * map.resolution),
     u_y(642 * map.resolution, 642 * map.resolution),
     u_theta(-PI, PI);*/
     u_x(350 * map.resolution, 450 * map.resolution),
     u_y(378 * map.resolution, 478 * map.resolution),
-    u_theta(-PI/2-PI/10, -PI/2-PI/10);
+    u_theta(-PI, PI);
+    // u_theta(-PI/2-PI/10, -PI/2-PI/10);
 
   size_t i=0;
   while (i < kParticles) {
 
     Pose p(u_x(gen), u_y(gen), u_theta(gen));
 
-    // if (map.inside(p)) {
+    if (map.inside(p)) {
       particles[i] = p;
       ++i;
-    // }
+    }
   }
 }
 
@@ -226,10 +265,10 @@ int ParticleFilter::Bresenham_ray_tracing(
     if (map.prob[x * map.size_y + y] > threshold) {
 
       if (show_ray_tracing)
-	cv::circle(simulation_bresenham, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), 1);
+        cv::circle(simulation_bresenham, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), 1);
 
       if (flag) {
-	cv::circle(img, cv::Point(x, y), 0, cv::Scalar(0, float(255) * theta, 0), 1);
+        cv::circle(img, cv::Point(x, y), 0, cv::Scalar(0, float(255) * theta, 0), 1);
       }
 
       dist = (float) sqrt(square(int(x) - x0) + square(int(y) - y0)) * map.resolution;
@@ -271,7 +310,7 @@ int ParticleFilter::naive_ray_tracing(
 
     if (map.prob[ix * map.size_y + iy] > threshold) {
       if (show_ray_tracing)
-	cv::circle(simulation_naive, cv::Point(ix, iy), 1, cv::Scalar(0, 0, 255), 1);
+        cv::circle(simulation_naive, cv::Point(ix, iy), 1, cv::Scalar(0, 0, 255), 1);
 
       return sqrt(pow(x - x0, 2) + pow(y - y0, 2));
     }
@@ -319,7 +358,7 @@ void ParticleFilter::simulate_laser_scan_all_particles() {
     size_t i_end = i == threads.size() - 1 ? kParticles : (i+1) * kParticlesPerThread;
 
     threads[i] = std::thread([this, i_begin, i_end] {
-	this->simulate_laser_scan_some_particles(i_begin, i_end);
+        this->simulate_laser_scan_some_particles(i_begin, i_end);
     });
   }
 
@@ -338,7 +377,7 @@ void ParticleFilter::simulate_laser_scan_all_particles() {
     particle_mask[i] = (sum == 0);
   }
 
-  printf("Took %g to do ray-tracing\n", timer_end(t_start));
+  // printf("Took %g to do ray-tracing\n", timer_end(t_start));
 }
 
 void ParticleFilter::simulate_laser_scan_some_particles(
@@ -405,7 +444,7 @@ vector<float> ParticleFilter::compute_likelihood(
     likelihoods[i] = std::exp(likelihoods[i] - max_log);
   // */
 
-  printf("Took %g to compute likelihood\n", timer_end(t_start));
+  // printf("Took %g to compute likelihood\n", timer_end(t_start));
 
   return likelihoods;
 }
@@ -445,7 +484,7 @@ vector<Particle> ParticleFilter::low_variance_resampling(
     if (idx >= particles.size()) {
       printf("\33[31m[Error]\33[0m\n");
       printf("idx = %zu, counter = %zu, sum = %f, cumsum = %f, i = %zu, r = %f, interval = %f, weights[%zu] = %f\n",
-	  idx, counter, sum, cumsum, i, r, interval, counter, weights[counter]);
+          idx, counter, sum, cumsum, i, r, interval, counter, weights[counter]);
 
       exit(-1);
     }
@@ -468,7 +507,7 @@ void ParticleFilter::update_particles_through_motion_model(
   for (auto& p : particles)
     update_one_particle_through_motion_model(p, p0, p1, dt);
 
-  printf("Took %g to update particle through motion model\n", timer_end(t_start));
+  // printf("Took %g to update particle through motion model\n", timer_end(t_start));
 }
 
 void ParticleFilter::update_one_particle_through_motion_model(
@@ -522,7 +561,7 @@ void ParticleFilter::show_particles_on_map(const std::vector<FLOAT>& likelihoods
 
   // Plot GREEN (sum != 0) particles
   for (size_t i=0; i<particles.size(); ++i) {
-    size_t j = indices[i];
+    size_t j = indices[i]; // in the order of sorted likelihood
 
     size_t ix = particles[j].x / map.resolution;
     size_t iy = particles[j].y / map.resolution;
