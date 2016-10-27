@@ -106,7 +106,7 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
       }
 
       // Low-Variance Resampling
-      if (i > 100)
+      // if (i > 100)
 	particles = low_variance_resampling(likelihoods);
 
       printf("Took \33[33m%g\33[0m in total\n\n", timer_end(t_start_total));
@@ -124,25 +124,25 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 void ParticleFilter::init_particles() {
   // Create uniform distribution sampler for x, y, theta
   std::uniform_real_distribution<>
-    /*u_x(map.min_x * map.resolution, map.max_x * map.resolution),
+    u_x(map.min_x * map.resolution, map.max_x * map.resolution),
     u_y(map.min_y * map.resolution, map.max_y * map.resolution),
-    u_theta(-PI, PI);*/
+    u_theta(-PI, PI);
     /*u_x(654 * map.resolution, 654 * map.resolution),
     u_y(642 * map.resolution, 642 * map.resolution),
     u_theta(-PI, PI);*/
-    u_x(350 * map.resolution, 450 * map.resolution),
+    /*u_x(350 * map.resolution, 450 * map.resolution),
     u_y(378 * map.resolution, 478 * map.resolution),
-    u_theta(-PI/2-PI/10, -PI/2-PI/10);
+    u_theta(-PI/2-PI/10, -PI/2-PI/10);*/
 
   size_t i=0;
   while (i < kParticles) {
 
     Pose p(u_x(gen), u_y(gen), u_theta(gen));
 
-    // if (map.inside(p)) {
+    if (map.inside(p)) {
       particles[i] = p;
       ++i;
-    // }
+    }
   }
 }
 
@@ -386,8 +386,7 @@ vector<float> ParticleFilter::compute_likelihood(
   for (size_t i=0; i<kParticles; ++i) {
     for (size_t j=0; j<Laser::kBeamPerScan; ++j) {
       auto l = SensorModel::eval(simulated_measurements[i][j], measurement[j]);
-      likelihoods[i] += std::log(l);
-      // likelihoods[i] += l;
+      likelihoods[i] += l;
     }
   }
 
