@@ -107,7 +107,7 @@ private:
      Update one particle through motion model assuming it's Gaussian distribution
    */
   void update_one_particle_through_motion_model(
-    Particle& p, const Pose& p0, const Pose& p1, TIME_T dt, bool deterministic = false);
+    Particle& p, const Pose& p0, const Pose& p1, TIME_T dt, FLOAT omega_variance, bool deterministic=false);
   
   /*
      Compute particle centroid (weighted sum)
@@ -120,9 +120,14 @@ private:
   void show_particles_on_map(const std::vector<FLOAT>& likelihoods);
 
 
-  void resample_particles(
-    size_t start_idx, const std::vector<size_t>& indices,
+  void rand_initi_particles(
+    const FLOAT abandom_precentage, const std::vector<size_t>& indices,
     std::vector<FLOAT>& likelihoods);
+
+  bool likelihoods_evaluation(const std::vector<FLOAT>& weights, const std::vector<size_t>& indices);
+
+  std::vector<size_t> sort_likelihoods(const std::vector<FLOAT>& likelihoods);
+
 
   // Data Member
   cv::Mat cv_img;

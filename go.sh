@@ -10,7 +10,7 @@ bin/particle_filter data/log/robotdata1.log \
 --sigma 200 \
 --motion-sigma-xy 5 \
 --motion-sigma-theta 0.01 \
--n 10000 \
+-n 5000
 # --show-ray-tracing true
 #--weights 1.0.8.100.0.5
 # --sigma 400 \ #200
