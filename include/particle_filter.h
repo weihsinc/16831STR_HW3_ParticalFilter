@@ -120,6 +120,9 @@ private:
   void show_particles_on_map(const std::vector<FLOAT>& likelihoods);
 
 
+  void resample_particles(
+    size_t start_idx, const std::vector<size_t>& indices,
+    std::vector<FLOAT>& likelihoods);
 
   // Data Member
   cv::Mat cv_img;

@@ -19,13 +19,13 @@ public:
   static FLOAT exp_decay;
   static FLOAT sigma;
 
-  static FLOAT eval(size_t x, size_t z) {
+  static FLOAT eval(int x, int z) {
     
     const FLOAT denom = 1.; // 1. / (sqrt(2 * PI()) * ParticleFilter::sigma);
 
     FLOAT l0 = denom * std::exp(-0.5 * pow((FLOAT) (x - z) / sigma, 2));
-    // FLOAT l1 = x < z ? (std::exp(-exp_decay * x) - std::exp(-exp_decay * z)) : 0.;
-    FLOAT l1 = std::exp(-exp_decay * x);
+    FLOAT l1 = x < z ? (std::exp(-exp_decay * x) - std::exp(-exp_decay * z)) : 0.;
+    // FLOAT l1 = std::exp(-exp_decay * x);
     FLOAT l2 = 1. / Laser::MaxRange;
     FLOAT l3 = x > Laser::MaxRange - 50 ? 1. : 0.;
 
