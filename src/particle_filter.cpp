@@ -96,19 +96,31 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
         likelihoods[j] = std::max(0.01f, likelihoods[j]);
       // */
 
-      show_particles_on_map(likelihoods);
+      // show_particles_on_map(likelihoods);
 
       // Only keep particles inside the map
-      for (size_t j=0; j<particles.size(); ++j) {
-        if (!map.inside(particles[j]))
-          likelihoods[j] *= 0;
-      }
+      // for (size_t j=0; j<particles.size(); ++j) {
+      //   if (!map.inside(particles[j]))
+      //     likelihoods[j] *= 0;
+      // }
 
       int sampleing_rate = 10;
       // if (true){
-      if (i % sampleing_rate == 0 && (i-reset_count > 20)){
+      // if (i % sampleing_rate){
+      if (i % sampleing_rate == 0 && (i-reset_count > 100)){
 
-        // show_particles_on_map(likelihoods);
+            // change to expotential
+            auto max_log = *std::max_element(likelihoods.begin(), likelihoods.end());
+            for (size_t i=0; i<likelihoods.size(); ++i)
+              likelihoods[i] = std::exp(likelihoods[i] - max_log);
+
+            for (size_t j=0; j<particles.size(); ++j) {
+              if (!map.inside(particles[j]))
+                likelihoods[j] *= 0;
+            }
+
+
+            show_particles_on_map(likelihoods);
 
             // re-intialize testing ========================================================
 
@@ -121,13 +133,6 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
                   [&likelihoods] (const size_t &i, const size_t& j) -> bool {
                   return likelihoods[i] > likelihoods[j];
             });
-
-            //
-            Measurement m(Laser::kBeamPerScan);
-            flag = true;
-            for (size_t i=0; i < 10; i++)
-                simulate_laser_scan(m, particles[indices[i]]);
-            flag = false;
 
 
 
@@ -153,22 +158,22 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
             printf("middle = %g \n", likelihoods[indices[kParticles/2]]);
 
             /////////
-            if (top_likelihood < 1e-5){
+            if(false){
+            // if (top_likelihood < 1e-5){
                 printf("  \33[33m re-intialize particle \33[0m \n");
                 init_particles();
                 reset_count = i;
             }
             
             else {
-                if (top_likelihood < 1e-3)
-                    resample_particles(kParticles/10, indices, likelihoods);
-                particles = low_variance_resampling(likelihoods);
+                // if (top_likelihood < 1e-3)
+                    // resample_particles(kParticles/10, indices, likelihoods);
+                // particles = low_variance_resampling(likelihoods);
             }
 
-            // if (top_likelihood*1000000000 < 1e-15){
-            //     printf("  \33[33m re-intialize particle \33[0m \n");
-            //   // init_particles();
-            // }
+            if (i > 100)
+                particles = low_variance_resampling(likelihoods);
+            
 
             // reset likelihoods
             likelihoods = vector<FLOAT>(kParticles, 0);
@@ -481,13 +486,13 @@ vector<float> ParticleFilter::compute_likelihood(
     const Measurement& measurement) {
 
   auto t_start = timer_start();
-  vector<FLOAT> likelihoods(kParticles, 0);
+  vector<FLOAT> likelihoods_increase(kParticles, 0);
 
   // Compare every particle with every model pairwisely
   for (size_t i=0; i<kParticles; ++i) {
     for (size_t j=0; j<Laser::kBeamPerScan; ++j) {
       auto l = SensorModel::eval(simulated_measurements[i][j], measurement[j]);
-      likelihoods[i] += std::log(l);
+      likelihoods_increase[i] += std::log(l);
       // likelihoods[i] += l;
     }
   }
@@ -501,14 +506,15 @@ vector<float> ParticleFilter::compute_likelihood(
   }
   // */
 
-  auto max_log = *std::max_element(likelihoods.begin(), likelihoods.end());
-  for (size_t i=0; i<likelihoods.size(); ++i)
-    likelihoods[i] = std::exp(likelihoods[i] - max_log);
+  /*
+  auto max_log = *std::max_element(likelihoods_increase.begin(), likelihoods_increase.end());
+  for (size_t i=0; i<likelihoods_increase.size(); ++i)
+    likelihoods_increase[i] = std::exp(likelihoods_increase[i] - max_log);
   // */
 
   // printf("Took %g to compute likelihood\n", timer_end(t_start));
 
-  return likelihoods;
+  return likelihoods_increase;
 }
 
 /*
@@ -534,7 +540,7 @@ vector<Particle> ParticleFilter::low_variance_resampling(
   size_t counter = 0;
 
   for (size_t i=0; i<kParticles; ++i) {
-    auto s = r + interval * i;
+    FLOAT s = r + interval * i;
 
     // printf("cumsum = %f, weights[%zu] = %f, s = %f\n", cumsum, counter, weights[counter], s);
     while (!(cumsum + weights[counter] > s)) {
@@ -550,8 +556,10 @@ vector<Particle> ParticleFilter::low_variance_resampling(
 
       exit(-1);
     }
+    // debug(idx);
     new_particles.push_back(particles[idx]);
   }
+  // exit(-1);
 
   assert(new_particles.size() == particles.size());
 
