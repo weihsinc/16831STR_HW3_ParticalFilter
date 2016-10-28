@@ -3,7 +3,7 @@
 # bin/find_max_range <(cat data/log/robotdata*.log)
 #make clean 
 make o3 &&
-bin/particle_filter data/log/robotdata4.log \
+bin/particle_filter data/log/robotdata5.log \
 --max-range 8192 \
 --weights 0.5,0.2,100,0.2 \
 --exp-decay 1e-4 \

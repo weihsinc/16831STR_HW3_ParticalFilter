@@ -126,13 +126,6 @@ private:
    */
   void show_particles_on_map(const std::vector<FLOAT>& likelihoods);
 
-
-  void rand_initi_particles(
-    const FLOAT abandom_precentage, const std::vector<size_t>& indices,
-    std::vector<FLOAT>& likelihoods);
-
-  bool likelihoods_evaluation(const std::vector<FLOAT>& weights, const std::vector<size_t>& indices);
-
   std::vector<size_t> sort_likelihoods(const std::vector<FLOAT>& likelihoods);
 
 

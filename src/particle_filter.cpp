@@ -50,6 +50,9 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
   size_t reintialize_counter = 0;
 
   // re-weighting testing =======================================================================
+  int fourcc = CV_FOURCC('M', 'J', 'P', 'G');
+  int fps = 30;
+  cv::VideoWriter outputVideo("videos/robotdata5.avi", fourcc, fps, cv::Size(800, 480));
 
   // 1) Perform particle filter algorithm iteratively
   for (size_t i=1; i<sensor_msgs.size(); ++i) {
@@ -64,7 +67,7 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
     auto p1 = sensor_msgs[i]->pose;
     auto dt = sensor_msgs[i]->timestamp - sensor_msgs[i-1]->timestamp;
 
-    update_one_particle_through_motion_model(pose_gnd, p0, p1, dt, 0.0, true);
+    // update_one_particle_through_motion_model(pose_gnd, p0, p1, dt, 0.0, true);
 
     /*
     Measurement m(Laser::kBeamPerScan);
@@ -104,6 +107,9 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 
       show_particles_on_map(to_probabilities(likelihoods));
       cv::imshow("Display window", img);
+      cv::Mat flipped_img;
+      cv::flip(img, flipped_img, 0);
+      outputVideo << flipped_img(cv::Rect(0, 50, 800, 480));
       // cv::waitKey(0);
 
       // Only keep particles inside the map
@@ -116,23 +122,6 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
       if (resampleing_counter % resampleing_rate == 0 
         && (i-reintialize_counter > reintialize_rate)){
 
-	    /*
-            // calculate sorted index of likehood from max to min
-            auto indices = sort_likelihoods(likelihoods);
-
-            // re-intialize all particles if it converges to a really shitty local minumum
-            if(likelihoods_evaluation(likelihoods, indices)){
-              printf("  \33[33m re-intialize particle \33[0m \n");
-              init_particles();
-              reintialize_counter = i;
-            }
-            // perform low variance resampling
-            else {
-              FLOAT abandom_precentage = 0.005;
-              // rand_initi_particles(abandom_precentage, indices, likelihoods);
-              particles = low_variance_resampling(likelihoods);
-            }
-	    */
 	    particles = low_variance_resampling(to_probabilities(likelihoods));
 
             // reset likelihoods
@@ -256,37 +245,6 @@ std::vector<size_t> ParticleFilter::sort_likelihoods(const std::vector<FLOAT>& l
   return indices;
 }
 
-bool ParticleFilter::likelihoods_evaluation(
-      const std::vector<FLOAT>& likelihoods, const std::vector<size_t>& indices){
-
-    // change to expotential
-    /*
-    auto max_log = *std::max_element(likelihoods.begin(), likelihoods.end());
-    for (size_t i=0; i<likelihoods.size(); ++i)
-      likelihoods[i] = std::pow(std::exp(likelihoods[i]), 1./sampleing_rate);
-
-    for (size_t j=0; j<particles.size(); ++j) {
-      if (!map.inside(particles[j]))
-        likelihoods[j] *= 0;
-    }
-    // */
-
-    // test for top 10% likehood
-    FLOAT top_likelihood = 0.0; 
-    int num = kParticles/10;
-    for (size_t i=0; i<num; ++i)
-        top_likelihood += likelihoods[indices[i]];
-    top_likelihood /=num;
-    debug(top_likelihood);
-
-    // test fo rsum of likelihoods
-    FLOAT sum = 0;
-    for (auto& w : likelihoods)
-        sum += w;
-
-    return sum == 0 && top_likelihood < 1e-5;
-}
-
 /*
    Random initialize particles uniformly
  */
@@ -313,75 +271,6 @@ void ParticleFilter::init_particles() {
       ++i;
     }
   }
-}
-
-/*
-   Random initialize particles uniformly
- */
-void ParticleFilter::rand_initi_particles(
-  const FLOAT abandom_precentage, const std::vector<size_t>& indices,
-  std::vector<FLOAT>& likelihoods) {
-
-  printf("  \33[33m re-sampleing particle \33[0m \n");
-
-  FLOAT sum = 0;
-  for (auto& w : likelihoods)
-    sum += w;
-
-  /*
-  size_t start_idx = kParticles*(1.0- abandom_precentage);
-  // debug(start_idx);
-
-    FLOAT avg=0;
-    for (size_t i = start_idx; i<kParticles; ++i)
-        avg += likelihoods[indices[i]];
-    avg /= (kParticles-start_idx);
-
-  // Create uniform distribution sampler for x, y, theta
-  std::uniform_real_distribution<>
-    u_x(map.min_x * map.resolution, map.max_x * map.resolution),
-    u_y(map.min_y * map.resolution, map.max_y * map.resolution),
-    u_theta(-PI, PI);
-
-  while (start_idx < kParticles) {
-
-    Pose p(u_x(gen), u_y(gen), u_theta(gen));
-
-    if (map.inside(p)) {
-      particles[indices[start_idx]] = p;
-      likelihoods[indices[start_idx]] = avg;
-      ++start_idx;
-    }
-  }
-  */
-
-  // calcualte weight threshold depend on the abandom precentage
-  auto w_threshold = sum*(1.0-abandom_precentage);
-  size_t idx = 0; FLOAT cumsum=0;
-  for (; idx<kParticles && cumsum < w_threshold; ++idx)
-    cumsum += likelihoods[indices[idx]];
-
-  // calculate uniform weights for new random particle
-  auto w_left      = sum - w_threshold;
-  FLOAT avg = w_left/(kParticles-idx);
-
-  // Re-intialize some particle
-  std::uniform_real_distribution<>
-    u_x(map.min_x * map.resolution, map.max_x * map.resolution),
-    u_y(map.min_y * map.resolution, map.max_y * map.resolution),
-    u_theta(-PI, PI);
-
-  while (idx < kParticles) {
-
-    Pose p(u_x(gen), u_y(gen), u_theta(gen));
-
-    if (map.inside(p)) {
-      particles[indices[idx]] = p;
-      likelihoods[indices[idx]] = avg;
-      ++idx;
-    }
-  }
-
 }
 
 // Use C macro ##, which is a token-pasting operator
@@ -614,15 +503,17 @@ vector<float> ParticleFilter::to_probabilities(const vector<float>& likelihoods)
   vector<float> prob(likelihoods.size());
   auto max_log = *std::max_element(likelihoods.begin(), likelihoods.end());
   for (size_t i=0; i<likelihoods.size(); ++i)
-    prob[i] = pow(std::exp(likelihoods[i] - max_log), 0.01);
+    prob[i] = pow(std::exp(likelihoods[i] - max_log), 0.02);
 
   // print top-N scores
+  /*
   const int N = 20;
   auto indices = sort_likelihoods(prob);
   printf("Top-%d weights:  ", N);
   for (int i=0; i<=N; ++i)
     printf("%.2f ", prob[indices[i]]);
   printf("\n");
+  */
 
   return prob;
 }
@@ -809,7 +700,9 @@ void ParticleFilter::show_particles_on_map(const std::vector<FLOAT>& likelihoods
     // cv::circle(img, cv::Point(ix, iy), 0, GREEN, 2);
   }
   
+  /*
   cv::circle(cv_img, map.to_idx(pose_gnd), 0, cv::Scalar(128, 0, 255), 1);
   cv::circle(img, map.to_idx(pose_gnd), 0, cv::Scalar(255, 0, 0), 1);
   cv::circle(img, map.to_idx(pose_gnd), 15, cv::Scalar(255, 0, 0), 2);
+  // */
 }
