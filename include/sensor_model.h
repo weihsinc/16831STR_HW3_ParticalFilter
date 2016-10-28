@@ -22,24 +22,21 @@ public:
 
   static FLOAT* likelihoods;
 
-  /*
   static void init_lookup_table() {
     likelihoods = new FLOAT[Laser::MaxRange * Laser::MaxRange];
 
     printf("Initializing the lookup table for sensor model (this might take a while) ...\n");
     for (int z=0; z<Laser::MaxRange; ++z) {
       for (int x=0; x<Laser::MaxRange; ++x) {
-	likelihoods[z * Laser::MaxRange + x] = std::log(_eval(x, z));
+	likelihoods[z * Laser::MaxRange + x] = _eval(x, z);
       }
     }
     printf("Done.");
   }
-  */
 
   static FLOAT eval(int x, int z) {
-    return _eval(x, z);
-    // assert (x < Laser::MaxRange && z < Laser::MaxRange);
-    // return likelihoods[z * Laser::MaxRange + x];
+    assert (x < Laser::MaxRange && z < Laser::MaxRange);
+    return likelihoods[z * Laser::MaxRange + x];
   }
 
   static FLOAT _eval(int x, int z) {

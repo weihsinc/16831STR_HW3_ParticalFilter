@@ -42,7 +42,7 @@ public:
   /*
      Perform particle filter algorithm
    */
-  std::vector<Pose> operator () (const std::vector<SensorMsg*> sensor_msgs);
+  void operator () (const std::vector<SensorMsg*> sensor_msgs);
 
 private:
   /*
@@ -114,7 +114,7 @@ private:
      Update one particle through motion model assuming it's Gaussian distribution
    */
   void update_one_particle_through_motion_model(
-    Particle& p, const Pose& p0, const Pose& p1, TIME_T dt, FLOAT omega_variance, bool deterministic=false);
+    Particle& p, const Pose& p0, const Pose& p1, TIME_T dt, bool deterministic=false);
   
   /*
      Compute particle centroid (weighted sum)
@@ -126,13 +126,10 @@ private:
    */
   void show_particles_on_map(const std::vector<FLOAT>& likelihoods);
 
-  std::vector<size_t> sort_likelihoods(const std::vector<FLOAT>& likelihoods);
-
+  cv::Mat flip_and_crop() const;
 
   // Data Member
-  cv::Mat cv_img;
   cv::Mat img;
-  cv::Mat simulation_naive;
   cv::Mat simulation_bresenham;
 
   const Map& map;
@@ -142,11 +139,6 @@ private:
   std::vector<Measurement> simulated_measurements;
 
   std::vector<std::thread> threads;
-  std::vector<bool> particle_mask;
-
-  bool flag;
-  float theta;
-  Pose pose_gnd;
 
   MotionModel motion_model;
 };

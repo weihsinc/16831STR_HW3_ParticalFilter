@@ -47,4 +47,27 @@ std::vector<T>& operator+=(std::vector<T>& lhs, const std::vector<T>& rhs)
     return lhs;
 }
 
+template <typename T>
+std::vector<size_t> sort(const std::vector<T>& arr) {
+
+  std::vector<size_t> indices(arr.size());
+  for (size_t i=0; i<indices.size(); ++i)
+      indices[i] = i;
+
+  sort(indices.begin(), indices.end(), 
+        [&arr] (const size_t &i, const size_t& j) -> bool {
+        return arr[i] < arr[j];
+  });
+
+  return indices;
+}
+
+template <typename T>
+T arrsum(const std::vector<T>& arr) {
+  T s = 0;
+  for (auto& x : arr)
+    s += x;
+  return s;
+}
+
 #endif // __UTILS_H_
