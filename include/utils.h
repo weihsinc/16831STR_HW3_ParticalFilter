@@ -6,6 +6,7 @@
 #include <vector>
 
 #define PI 3.14159265359
+#define debug(x) {std::cout << #x " = " << x << std::endl; }
 
 void split(const std::string &s, char delim, std::vector<std::string> &elems);
 
@@ -37,5 +38,13 @@ struct timespec timer_start();
 
 // call this function to end a timer, returning nanoseconds elapsed as a long
 double timer_end(struct timespec start_time);
+
+template <typename T>
+std::vector<T>& operator+=(std::vector<T>& lhs, const std::vector<T>& rhs)
+{
+	for (size_t i=0; i<rhs.size(); ++i)
+		lhs[i] += rhs[i];
+    return lhs;
+}
 
 #endif // __UTILS_H_

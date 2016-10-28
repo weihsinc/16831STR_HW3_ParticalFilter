@@ -86,6 +86,13 @@ private:
   void simulate_laser_scan(Measurement& m, const Pose& pose);
 
   /*
+     Playaround the robot with GUI and keyboard
+   */
+  void playaround_with_GUI(Laser* laser, const std::vector<FLOAT>& likelihoods);
+
+  std::vector<float> to_probabilities(const std::vector<float>& likelihoods);
+
+  /*
      Compare Laser measurements (per scan, meaning 180 feature vectors) to the
      measurements simulated at all particle's pose.
      */
@@ -107,7 +114,7 @@ private:
      Update one particle through motion model assuming it's Gaussian distribution
    */
   void update_one_particle_through_motion_model(
-    Particle& p, const Pose& p0, const Pose& p1, TIME_T dt, bool deterministic = false);
+    Particle& p, const Pose& p0, const Pose& p1, TIME_T dt, FLOAT omega_variance, bool deterministic=false);
   
   /*
      Compute particle centroid (weighted sum)
@@ -118,6 +125,16 @@ private:
      Show particles on map
    */
   void show_particles_on_map(const std::vector<FLOAT>& likelihoods);
+
+
+  void rand_initi_particles(
+    const FLOAT abandom_precentage, const std::vector<size_t>& indices,
+    std::vector<FLOAT>& likelihoods);
+
+  bool likelihoods_evaluation(const std::vector<FLOAT>& weights, const std::vector<size_t>& indices);
+
+  std::vector<size_t> sort_likelihoods(const std::vector<FLOAT>& likelihoods);
+
 
   // Data Member
   cv::Mat cv_img;

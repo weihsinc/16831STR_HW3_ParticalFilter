@@ -38,6 +38,19 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 
   vector<Pose> poses;
 
+  // re-weighting testing =======================================================================
+  vector<FLOAT> likelihoods(kParticles, 0);
+  
+  /* number of iterations for activating weight sampling. Accumulate every time lidar sensor update */
+  const int resampleing_rate = 2;  
+  size_t resampleing_counter = 0; 
+
+  /* number of iterations freezed before first weight sampling. Accumulate every time odon/lidar sensor update */
+  const int reintialize_rate = 10; 
+  size_t reintialize_counter = 0;
+
+  // re-weighting testing =======================================================================
+
   // 1) Perform particle filter algorithm iteratively
   for (size_t i=1; i<sensor_msgs.size(); ++i) {
 
@@ -51,7 +64,8 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
     auto p1 = sensor_msgs[i]->pose;
     auto dt = sensor_msgs[i]->timestamp - sensor_msgs[i-1]->timestamp;
 
-    update_one_particle_through_motion_model(pose_gnd, p0, p1, dt, true);
+    update_one_particle_through_motion_model(pose_gnd, p0, p1, dt, 0.0, true);
+
     /*
     Measurement m(Laser::kBeamPerScan);
     flag = true;
@@ -61,6 +75,15 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 
     update_particles_through_motion_model(p0, p1, dt);
 
+    // for (size_t j=0; j<laser->ranges.size(); ++j) {
+    //     auto& r = laser->ranges[j];
+    //     int x = (r * std::cos(pose_gnd.theta + float(j) / 180 * PI - PI / 2) + pose_gnd.x) / map.resolution;
+    //     int y = (r * std::sin(pose_gnd.theta + float(j) / 180 * PI - PI / 2) + pose_gnd.y) / map.resolution;
+    //     cv::circle(img,
+    //         cv::Point(x, y),
+    //       0, cv::Scalar(0, 0, float(255) * j / 180), 1);
+    // }
+
     if (sensor_msgs[i]->type() == SensorMsg::Odometry) {
       // Do nothing
     }
@@ -69,53 +92,199 @@ vector<Pose> ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) 
 
       simulate_laser_scan_all_particles();
 
-      if (show_ray_tracing) {
-	// cv::imshow("Ray-Tracing Simulation (Naive)", simulation_naive);
-  	cv::imshow("Ray-Tracing Simulation (Bresenham)", simulation_bresenham);
-      }
+      // if (show_ray_tracing) {
+      // //   // cv::imshow("Ray-Tracing Simulation (Naive)", simulation_naive);
+      //   cv::imshow("Ray-Tracing Simulation (Bresenham)", simulation_bresenham);
+      // }
 
       // Compute likelihood by asking sensor model
-      auto likelihoods = compute_likelihood(laser->ranges);
+      likelihoods += compute_likelihood(laser->ranges);
 
-      /*
-      for (size_t j=0; j<particles.size(); ++j)
-        likelihoods[j] = std::max(0.01f, likelihoods[j]);
-      // */
+      // playaround_with_GUI(laser, to_probabilities(likelihoods));
+
+      show_particles_on_map(to_probabilities(likelihoods));
+      cv::imshow("Display window", img);
+      // cv::waitKey(0);
 
       // Only keep particles inside the map
       for (size_t j=0; j<particles.size(); ++j) {
-	if (!map.inside(particles[j]))
-	  likelihoods[j] *= 0;
+        if (!map.inside(particles[j]))
+          likelihoods[j] *= 0;
       }
+      
+      // Condition where we conduct low varaince sampling
+      if (resampleing_counter % resampleing_rate == 0 
+        && (i-reintialize_counter > reintialize_rate)){
 
-      /*
-      // Compute the centroid of particles (mean)
-      auto centroid = compute_particle_centroid(likelihoods);
-      cout << "pose[" << i << "] = " << centroid << endl;
-      // */
+	    /*
+            // calculate sorted index of likehood from max to min
+            auto indices = sort_likelihoods(likelihoods);
 
-      show_particles_on_map(likelihoods);
+            // re-intialize all particles if it converges to a really shitty local minumum
+            if(likelihoods_evaluation(likelihoods, indices)){
+              printf("  \33[33m re-intialize particle \33[0m \n");
+              init_particles();
+              reintialize_counter = i;
+            }
+            // perform low variance resampling
+            else {
+              FLOAT abandom_precentage = 0.005;
+              // rand_initi_particles(abandom_precentage, indices, likelihoods);
+              particles = low_variance_resampling(likelihoods);
+            }
+	    */
+	    particles = low_variance_resampling(to_probabilities(likelihoods));
 
-      for (size_t j=0; j<laser->ranges.size(); ++j) {
-	auto& r = laser->ranges[j];
-	int x = (r * std::cos(pose_gnd.theta + float(j) / 180 * PI - PI / 2) + pose_gnd.x) / map.resolution;
-	int y = (r * std::sin(pose_gnd.theta + float(j) / 180 * PI - PI / 2) + pose_gnd.y) / map.resolution;
-	cv::circle(img,
-	    cv::Point(x, y),
-	    0, cv::Scalar(0, 0, float(255) * j / 180), 1);
-      }
+            // reset likelihoods
+	    std::fill(likelihoods.begin(), likelihoods.end(), 0);
+        }
 
-      // Low-Variance Resampling
-      // if (i > 100)
-	particles = low_variance_resampling(likelihoods);
-
-      printf("Took \33[33m%g\33[0m in total\n\n", timer_end(t_start_total));
+        resampleing_counter++;
+      // printf("Took \33[33m%g\33[0m in total\n\n", timer_end(t_start_total));
     }
 
     cv::waitKey(5);
   }
 
+  cv::waitKey(0);
+
   return poses;
+}
+
+void ParticleFilter::playaround_with_GUI(Laser* laser, const std::vector<FLOAT>& likelihoods) {
+
+  cv::namedWindow("Simulated measurement", cv::WINDOW_AUTOSIZE);
+  auto max_idx = std::max_element(likelihoods.begin(), likelihoods.end()) - likelihoods.begin();
+  auto best_pose = particles[max_idx];
+
+  int keycode = -1;
+  auto temp_img = img.clone();
+  cv::Mat score_img;
+
+  int counter = 0;
+  while ((keycode = cv::waitKey(0)) != 27) {
+    ++counter;
+    img = temp_img.clone();
+    show_particles_on_map(likelihoods);
+
+    switch (keycode) {
+      case 106: best_pose.theta += PI / 180; break;
+      case 107: best_pose.theta -= PI / 180; break;
+      case 97:  best_pose.x -= 10; break;
+      case 100: best_pose.x += 10; break;
+      case 119: best_pose.y -= 10; break;
+      case 115: best_pose.y += 10; break;
+      case 53:  SensorModel::weights[0] += 0.05; break;
+      case 116: SensorModel::weights[0] -= 0.05; break;
+      case 54:  SensorModel::weights[1] += 0.05; break;
+      case 121: SensorModel::weights[1] -= 0.05; break;
+      case 55:  SensorModel::weights[2] += 0.05; break;
+      case 117: SensorModel::weights[2] -= 0.05; break;
+      case 56:  SensorModel::weights[3] += 0.05; break;
+      case 105: SensorModel::weights[3] -= 0.05; break;
+      case 32:
+	string new_wnd_name = "Simulated measurement" + to_string(counter);
+	cv::namedWindow(new_wnd_name, cv::WINDOW_AUTOSIZE);
+	cv::imshow(new_wnd_name, score_img);
+	break;
+    }
+
+    cout << keycode << endl;
+
+    const Pose R2L(25.0*cos(best_pose.theta), 25.0*sin(best_pose.theta), 0);
+    auto lidar_pose = best_pose + R2L;
+
+    flag = true;
+    simulate_laser_scan(simulated_measurements[max_idx], best_pose);
+    flag = false;
+
+    score_img = cv::Mat(2*200, Laser::kBeamPerScan * 2, CV_8UC3, cv::Scalar(255, 255, 255));
+    vector<float> scores;
+    cout << "l0 (from gaussian) = " << endl;
+    for (size_t j=0; j<laser->ranges.size(); ++j) {
+      auto& r = laser->ranges[j];
+      auto& r2 = simulated_measurements[max_idx][j];
+      scores.push_back(SensorModel::eval(r2, r));
+      cv::line(score_img, cv::Point(j*2, 2 * 200), cv::Point(j*2, (2 - scores[j]) * 200.), cv::Scalar(255, 128, 0), 2);
+    }
+    cv::imshow("Simulated measurement", score_img);
+
+    cout << SensorModel::weights << endl;
+
+    auto min_score = *std::min_element(scores.begin(), scores.end());
+    auto max_score = *std::max_element(scores.begin(), scores.end());
+
+    for (size_t j=0; j<laser->ranges.size(); ++j) {
+      auto& r = laser->ranges[j];
+      auto& r2 = simulated_measurements[max_idx][j];
+      auto score = scores[j];
+      int x = (r * std::cos(lidar_pose.theta + float(j) / 180 * PI - PI / 2) + lidar_pose.x) / map.resolution;
+      int y = (r * std::sin(lidar_pose.theta + float(j) / 180 * PI - PI / 2) + lidar_pose.y) / map.resolution;
+
+      cv::circle(img,
+	  cv::Point(x, y),
+	  0, cv::Scalar(0, 0, float(255) * score), 1);
+    }
+
+
+    for (size_t j=0; j<laser->ranges.size(); ++j) {
+      auto& r = laser->ranges[j];
+      int x = (r * std::cos(pose_gnd.theta + float(j) / 180 * PI - PI / 2) + pose_gnd.x) / map.resolution;
+      int y = (r * std::sin(pose_gnd.theta + float(j) / 180 * PI - PI / 2) + pose_gnd.y) / map.resolution;
+      /*  
+	  cv::circle(img,
+	  cv::Point(x, y),
+	  0, cv::Scalar(0, 0, float(255) * j / 180), 3);
+      //*/
+    }
+    cv::imshow("Display window", img);
+    cv::waitKey(10);
+  }
+}
+
+std::vector<size_t> ParticleFilter::sort_likelihoods(const std::vector<FLOAT>& likelihoods){
+
+  std::vector<size_t> indices(kParticles);
+  for (size_t i=0; i<kParticles; ++i)
+      indices[i] = i;
+
+  sort(indices.begin(), indices.end(), 
+        [&likelihoods] (const size_t &i, const size_t& j) -> bool {
+        return likelihoods[i] > likelihoods[j];
+  });
+
+  return indices;
+}
+
+bool ParticleFilter::likelihoods_evaluation(
+      const std::vector<FLOAT>& likelihoods, const std::vector<size_t>& indices){
+
+    // change to expotential
+    /*
+    auto max_log = *std::max_element(likelihoods.begin(), likelihoods.end());
+    for (size_t i=0; i<likelihoods.size(); ++i)
+      likelihoods[i] = std::pow(std::exp(likelihoods[i]), 1./sampleing_rate);
+
+    for (size_t j=0; j<particles.size(); ++j) {
+      if (!map.inside(particles[j]))
+        likelihoods[j] *= 0;
+    }
+    // */
+
+    // test for top 10% likehood
+    FLOAT top_likelihood = 0.0; 
+    int num = kParticles/10;
+    for (size_t i=0; i<num; ++i)
+        top_likelihood += likelihoods[indices[i]];
+    top_likelihood /=num;
+    debug(top_likelihood);
+
+    // test fo rsum of likelihoods
+    FLOAT sum = 0;
+    for (auto& w : likelihoods)
+        sum += w;
+
+    return sum == 0 && top_likelihood < 1e-5;
 }
 
 /*
@@ -144,6 +313,75 @@ void ParticleFilter::init_particles() {
       ++i;
     }
   }
+}
+
+/*
+   Random initialize particles uniformly
+ */
+void ParticleFilter::rand_initi_particles(
+  const FLOAT abandom_precentage, const std::vector<size_t>& indices,
+  std::vector<FLOAT>& likelihoods) {
+
+  printf("  \33[33m re-sampleing particle \33[0m \n");
+
+  FLOAT sum = 0;
+  for (auto& w : likelihoods)
+    sum += w;
+
+  /*
+  size_t start_idx = kParticles*(1.0- abandom_precentage);
+  // debug(start_idx);
+
+    FLOAT avg=0;
+    for (size_t i = start_idx; i<kParticles; ++i)
+        avg += likelihoods[indices[i]];
+    avg /= (kParticles-start_idx);
+
+  // Create uniform distribution sampler for x, y, theta
+  std::uniform_real_distribution<>
+    u_x(map.min_x * map.resolution, map.max_x * map.resolution),
+    u_y(map.min_y * map.resolution, map.max_y * map.resolution),
+    u_theta(-PI, PI);
+
+  while (start_idx < kParticles) {
+
+    Pose p(u_x(gen), u_y(gen), u_theta(gen));
+
+    if (map.inside(p)) {
+      particles[indices[start_idx]] = p;
+      likelihoods[indices[start_idx]] = avg;
+      ++start_idx;
+    }
+  }
+  */
+
+  // calcualte weight threshold depend on the abandom precentage
+  auto w_threshold = sum*(1.0-abandom_precentage);
+  size_t idx = 0; FLOAT cumsum=0;
+  for (; idx<kParticles && cumsum < w_threshold; ++idx)
+    cumsum += likelihoods[indices[idx]];
+
+  // calculate uniform weights for new random particle
+  auto w_left      = sum - w_threshold;
+  FLOAT avg = w_left/(kParticles-idx);
+
+  // Re-intialize some particle
+  std::uniform_real_distribution<>
+    u_x(map.min_x * map.resolution, map.max_x * map.resolution),
+    u_y(map.min_y * map.resolution, map.max_y * map.resolution),
+    u_theta(-PI, PI);
+
+  while (idx < kParticles) {
+
+    Pose p(u_x(gen), u_y(gen), u_theta(gen));
+
+    if (map.inside(p)) {
+      particles[indices[idx]] = p;
+      likelihoods[indices[idx]] = avg;
+      ++idx;
+    }
+  }
+
 }
 
 // Use C macro ##, which is a token-pasting operator
@@ -215,7 +453,7 @@ int ParticleFilter::Bresenham_ray_tracing(
 
     if (flag) {
       // printf("theta = %f\n", theta);
-      // cv::circle(img, cv::Point(x, y), 0, cv::Scalar(float(255) * theta, 0, 0), 1);
+      cv::circle(img, cv::Point(x, y), 0, cv::Scalar(float(255) * theta, 0, 0), 1);
       // printf("i = %d, (x, y) = (%zu, %zu)\n", i, x, y);
     }
     // */
@@ -225,11 +463,11 @@ int ParticleFilter::Bresenham_ray_tracing(
 
     if (map.prob[x * map.size_y + y] > threshold) {
 
-      if (show_ray_tracing)
-	cv::circle(simulation_bresenham, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), 1);
+      // if (show_ray_tracing)
+        // cv::circle(simulation_bresenham, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), 1);
 
       if (flag) {
-	cv::circle(img, cv::Point(x, y), 0, cv::Scalar(0, float(255) * theta, 0), 1);
+        cv::circle(img, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), 1);
       }
 
       dist = (float) sqrt(square(int(x) - x0) + square(int(y) - y0)) * map.resolution;
@@ -271,7 +509,7 @@ int ParticleFilter::naive_ray_tracing(
 
     if (map.prob[ix * map.size_y + iy] > threshold) {
       if (show_ray_tracing)
-	cv::circle(simulation_naive, cv::Point(ix, iy), 1, cv::Scalar(0, 0, 255), 1);
+        cv::circle(simulation_naive, cv::Point(ix, iy), 1, cv::Scalar(0, 0, 255), 1);
 
       return sqrt(pow(x - x0, 2) + pow(y - y0, 2));
     }
@@ -319,7 +557,7 @@ void ParticleFilter::simulate_laser_scan_all_particles() {
     size_t i_end = i == threads.size() - 1 ? kParticles : (i+1) * kParticlesPerThread;
 
     threads[i] = std::thread([this, i_begin, i_end] {
-	this->simulate_laser_scan_some_particles(i_begin, i_end);
+        this->simulate_laser_scan_some_particles(i_begin, i_end);
     });
   }
 
@@ -338,7 +576,7 @@ void ParticleFilter::simulate_laser_scan_all_particles() {
     particle_mask[i] = (sum == 0);
   }
 
-  printf("Took %g to do ray-tracing\n", timer_end(t_start));
+  // printf("Took %g to do ray-tracing\n", timer_end(t_start));
 }
 
 void ParticleFilter::simulate_laser_scan_some_particles(
@@ -372,6 +610,23 @@ void ParticleFilter::simulate_laser_scan(Measurement& m, const Pose& pose) {
   }
 }
 
+vector<float> ParticleFilter::to_probabilities(const vector<float>& likelihoods) {
+  vector<float> prob(likelihoods.size());
+  auto max_log = *std::max_element(likelihoods.begin(), likelihoods.end());
+  for (size_t i=0; i<likelihoods.size(); ++i)
+    prob[i] = pow(std::exp(likelihoods[i] - max_log), 0.01);
+
+  // print top-N scores
+  const int N = 20;
+  auto indices = sort_likelihoods(prob);
+  printf("Top-%d weights:  ", N);
+  for (int i=0; i<=N; ++i)
+    printf("%.2f ", prob[indices[i]]);
+  printf("\n");
+
+  return prob;
+}
+
 /*
    Compare Laser measurements (per scan, meaning 180 feature vectors) to the
    measurements simulated at all particle's pose.
@@ -383,29 +638,10 @@ vector<float> ParticleFilter::compute_likelihood(
   vector<FLOAT> likelihoods(kParticles, 0);
 
   // Compare every particle with every model pairwisely
-  for (size_t i=0; i<kParticles; ++i) {
-    for (size_t j=0; j<Laser::kBeamPerScan; ++j) {
-      auto l = SensorModel::eval(simulated_measurements[i][j], measurement[j]);
-      likelihoods[i] += l;
-    }
-  }
-
-  /*
-  auto max_e = *std::max_element(likelihoods.begin(), likelihoods.end());
-  auto min_e = *std::min_element(likelihoods.begin(), likelihoods.end());
+  for (size_t i=0; i<kParticles; ++i)
+    for (size_t j=0; j<Laser::kBeamPerScan; ++j)
+      likelihoods[i] += SensorModel::eval(simulated_measurements[i][j], measurement[j]);
   
-  for (size_t i=0; i<kParticles; ++i) {
-    likelihoods[i] = (likelihoods[i] - min_e) / (max_e - min_e);
-  }
-  // */
-
-  auto max_log = *std::max_element(likelihoods.begin(), likelihoods.end());
-  for (size_t i=0; i<likelihoods.size(); ++i)
-    likelihoods[i] = std::exp(likelihoods[i] - max_log);
-  // */
-
-  printf("Took %g to compute likelihood\n", timer_end(t_start));
-
   return likelihoods;
 }
 
@@ -432,9 +668,8 @@ vector<Particle> ParticleFilter::low_variance_resampling(
   size_t counter = 0;
 
   for (size_t i=0; i<kParticles; ++i) {
-    auto s = r + interval * i;
+    FLOAT s = r + interval * i;
 
-    // printf("cumsum = %f, weights[%zu] = %f, s = %f\n", cumsum, counter, weights[counter], s);
     while (!(cumsum + weights[counter] > s)) {
       cumsum += weights[counter];
       ++counter;
@@ -444,12 +679,14 @@ vector<Particle> ParticleFilter::low_variance_resampling(
     if (idx >= particles.size()) {
       printf("\33[31m[Error]\33[0m\n");
       printf("idx = %zu, counter = %zu, sum = %f, cumsum = %f, i = %zu, r = %f, interval = %f, weights[%zu] = %f\n",
-	  idx, counter, sum, cumsum, i, r, interval, counter, weights[counter]);
+          idx, counter, sum, cumsum, i, r, interval, counter, weights[counter]);
 
       exit(-1);
     }
+    // debug(idx);
     new_particles.push_back(particles[idx]);
   }
+  // exit(-1);
 
   assert(new_particles.size() == particles.size());
 
@@ -464,26 +701,43 @@ void ParticleFilter::update_particles_through_motion_model(
 
   auto t_start = timer_start();
 
-  for (auto& p : particles)
-    update_one_particle_through_motion_model(p, p0, p1, dt);
+  // calculate omega variance TODO
+  auto delta = p1 - p0;
+  auto dtheta = std::abs(delta.theta);
+  auto omega = ( dtheta < PI*2-dtheta )? (dtheta/dt) : ((PI*2-dtheta)/dt);
+  // debug(omega);
+  omega = (omega > 1)? 1: omega;  
+  // if (omega > 1) {debug(omega); debug(dtheta);}
+  //
 
-  printf("Took %g to update particle through motion model\n", timer_end(t_start));
+
+  for (auto& p : particles){
+
+    update_one_particle_through_motion_model(p, p0, p1, dt, 0.0);
+  }
+
+  // printf("Took %g to update particle through motion model\n", timer_end(t_start));
 }
 
 void ParticleFilter::update_one_particle_through_motion_model(
-    Particle& p, const Pose& p0, const Pose& p1, TIME_T dt, bool deterministic) {
+    Particle& p, const Pose& p0, const Pose& p1, TIME_T dt, FLOAT omega_variance, bool deterministic) {
 
   auto delta = p1 - p0;
 
   auto c = std::cos(p.theta - p0.theta);
   auto s = std::sin(p.theta - p0.theta);
 
+
   p.x += (c * delta.x - s * delta.y);
   p.y += (s * delta.x + c * delta.y);
   p.theta += delta.theta;
 
-  if (!deterministic)
+  if (!deterministic){
     p += motion_model.sample() * std::sqrt(dt);
+    // p.theta += (omega_test(gen)/10);  
+  }
+
+  
 }
 
 /*
@@ -521,7 +775,7 @@ void ParticleFilter::show_particles_on_map(const std::vector<FLOAT>& likelihoods
 
   // Plot GREEN (sum != 0) particles
   for (size_t i=0; i<particles.size(); ++i) {
-    size_t j = indices[i];
+    size_t j = indices[i]; // in the order of sorted likelihood
 
     size_t ix = particles[j].x / map.resolution;
     size_t iy = particles[j].y / map.resolution;
@@ -533,8 +787,10 @@ void ParticleFilter::show_particles_on_map(const std::vector<FLOAT>& likelihoods
       continue;
     
     // cout << likelihoods[j] << endl;    
-    int darkness = 255 * (1 - likelihoods[j]);
-    cv::circle(img, cv::Point(ix, iy), 1, cv::Scalar(0, darkness, 255), 2 + likelihoods[j]);
+    // FLOAT p = std::exp(likelihoods[j]);
+    FLOAT p = likelihoods[j];
+    int darkness = 255 * (1 - p);
+    cv::circle(img, cv::Point(ix, iy), 0, cv::Scalar(0, darkness, 255), 1);
   }
 
   // Plot RED (sum == 0) particles
@@ -550,13 +806,10 @@ void ParticleFilter::show_particles_on_map(const std::vector<FLOAT>& likelihoods
       continue;
 
     // printf("ix = %zu, iy = %zu\n", ix, iy);
-    cv::circle(img, cv::Point(ix, iy), 0, GREEN, 2);
+    // cv::circle(img, cv::Point(ix, iy), 0, GREEN, 2);
   }
-
+  
   cv::circle(cv_img, map.to_idx(pose_gnd), 0, cv::Scalar(128, 0, 255), 1);
   cv::circle(img, map.to_idx(pose_gnd), 0, cv::Scalar(255, 0, 0), 1);
   cv::circle(img, map.to_idx(pose_gnd), 15, cv::Scalar(255, 0, 0), 2);
-
-  cv::imshow("Display window", img);
-  cv::waitKey(10);
 }

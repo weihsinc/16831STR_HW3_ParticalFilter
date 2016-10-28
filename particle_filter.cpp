@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
   SensorModel::weights = splitAsFloat(cmd["--weights"], ',');
   SensorModel::sigma = cmd["--sigma"];
   SensorModel::exp_decay = cmd["--exp-decay"];
-  SensorModel::init_lookup_table();
+  // SensorModel::init_lookup_table();
 
   // Load map
   Map map(map_fn);

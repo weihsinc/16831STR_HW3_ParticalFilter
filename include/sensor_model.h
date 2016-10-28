@@ -22,6 +22,7 @@ public:
 
   static FLOAT* likelihoods;
 
+  /*
   static void init_lookup_table() {
     likelihoods = new FLOAT[Laser::MaxRange * Laser::MaxRange];
 
@@ -33,16 +34,18 @@ public:
     }
     printf("Done.");
   }
+  */
 
   static FLOAT eval(int x, int z) {
-    assert (x < Laser::MaxRange && z < Laser::MaxRange);
-    return likelihoods[z * Laser::MaxRange + x];
+    return _eval(x, z);
+    // assert (x < Laser::MaxRange && z < Laser::MaxRange);
+    // return likelihoods[z * Laser::MaxRange + x];
   }
 
   static FLOAT _eval(int x, int z) {
 
     FLOAT l0 = std::exp(-0.5 * pow((FLOAT) (x - z) / sigma, 2));
-    FLOAT l1 = std::exp(-exp_decay * x);
+    FLOAT l1 = x < z ? std::exp(-exp_decay * x) : 0.;
     FLOAT l2 = 1. / Laser::MaxRange;
     FLOAT l3 = x > Laser::MaxRange - 50 ? 1. : 0.;
 
