@@ -50,7 +50,7 @@ void ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) {
   // 1) Perform particle filter algorithm iteratively
   for (size_t i=1; i<sensor_msgs.size(); ++i) {
 
-    auto t_start_total = timer_start();
+    // auto t_start_total = timer_start();
 
     img = map.cv_img.clone();
     simulation_bresenham = map.cv_img.clone();
@@ -97,7 +97,7 @@ void ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) {
         }
 
       resampleing_counter++;
-      printf("Took \33[33m%g\33[0m in total\n", timer_end(t_start_total));
+      // printf("Took \33[33m%g\33[0m in total\n", timer_end(t_start_total));
     }
 
     cv::waitKey(5);
