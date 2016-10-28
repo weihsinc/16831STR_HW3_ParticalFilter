@@ -45,7 +45,7 @@ void ParticleFilter::operator () (const vector<SensorMsg*> sensor_msgs) {
   /* Open Vidoe Writer */
   int fourcc = CV_FOURCC('M', 'J', 'P', 'G');
   int fps = 30;
-  cv::VideoWriter outputVideo("videos/test.avi", fourcc, fps, cv::Size(800, 480));
+  cv::VideoWriter outputVideo("test.avi", fourcc, fps, cv::Size(800, 480));
 
   // 1) Perform particle filter algorithm iteratively
   for (size_t i=1; i<sensor_msgs.size(); ++i) {
